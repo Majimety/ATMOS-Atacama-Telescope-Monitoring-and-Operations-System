@@ -1,10 +1,16 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars, Html } from "@react-three/drei";
 import { useRef, useMemo, useState } from "react";
 import * as THREE from "three";
 import { useTelemetryStore } from "../store/telemetryStore";
 
-// ── Dish component ──────────────────────────────────────────────────────────
+// ตำแหน่งใน sim (หน่วยเมตร) หารด้วย WORLD_SCALE เพื่อให้พอดีกับ scene
+// เปลี่ยนค่านี้ที่เดียวถ้าต้องการ rescale ทั้ง scene
+const WORLD_SCALE = 1 / 2.5;
+
+
+// ── Dish component ────────────────────────────────────────────────────────────
+
 function Dish({ id, position, azDeg, elDeg, online, selected, tsysK, onSelect }) {
   const azGroupRef = useRef();
   const elGroupRef = useRef();
@@ -25,10 +31,9 @@ function Dish({ id, position, azDeg, elDeg, online, selected, tsysK, onSelect })
     );
   });
 
-  const bodyColor   = online ? (selected ? "#00ffcc" : hovered ? "#aaddff" : "#b8ccd8") : "#5a3333";
-  const emissive    = online ? (selected ? "#003322" : "#0a1a2a") : "#1a0505";
-  const legColor    = "#3a4a55";
-  const faultGlow   = !online;
+  const bodyColor = online ? (selected ? "#00ffcc" : hovered ? "#aaddff" : "#b8ccd8") : "#5a3333";
+  const emissive  = online ? (selected ? "#003322" : "#0a1a2a") : "#1a0505";
+  const legColor  = "#3a4a55";
 
   return (
     <group
@@ -61,7 +66,7 @@ function Dish({ id, position, azDeg, elDeg, online, selected, tsysK, onSelect })
 
         {/* EL rotation group — rotates around X axis */}
         <group ref={elGroupRef} position={[0, 0.22, 0]}>
-          {/* Dish bowl — open half-sphere */}
+          {/* Dish bowl */}
           <mesh castShadow>
             <sphereGeometry args={[0.52, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
             <meshStandardMaterial
@@ -104,7 +109,7 @@ function Dish({ id, position, azDeg, elDeg, online, selected, tsysK, onSelect })
         </group>
       </group>
 
-      {/* Selection ring */}
+      {/* Selection / hover ring */}
       {(selected || hovered) && (
         <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.3, 0.38, 32]} />
@@ -116,15 +121,15 @@ function Dish({ id, position, azDeg, elDeg, online, selected, tsysK, onSelect })
         </mesh>
       )}
 
-      {/* Fault indicator — pulsing red ring */}
-      {faultGlow && (
+      {/* Fault indicator */}
+      {!online && (
         <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[0.28, 0.35, 24]} />
           <meshBasicMaterial color="#ff3333" transparent opacity={0.7} />
         </mesh>
       )}
 
-      {/* Hover label */}
+      {/* Hover tooltip */}
       {hovered && (
         <Html distanceFactor={12} position={[0, 2.4, 0]} center>
           <div style={{
@@ -140,8 +145,10 @@ function Dish({ id, position, azDeg, elDeg, online, selected, tsysK, onSelect })
   );
 }
 
-// ── Large telescope (APEX, IRAM, etc.) ─────────────────────────────────────
-function LargeTelescope({ position, diameterM, online, name }) {
+
+// ── Large telescope (APEX, IRAM, etc.) ───────────────────────────────────────
+
+function LargeTelescope({ position, diameterM, online }) {
   const s = Math.min(diameterM / 10, 3.2);
   return (
     <group position={position}>
@@ -161,7 +168,9 @@ function LargeTelescope({ position, diameterM, online, name }) {
   );
 }
 
-// ── Desert terrain ──────────────────────────────────────────────────────────
+
+// ── Terrain ───────────────────────────────────────────────────────────────────
+
 function Terrain() {
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(900, 900, 80, 80);
@@ -169,9 +178,9 @@ function Terrain() {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      // ความสูงเล็กน้อยให้รู้สึกเป็น plateau
+      // undulation เล็กน้อยให้รู้สึกเป็น plateau จริง ไม่ใช่พื้นแบน
       const h = Math.sin(x * 0.012) * Math.cos(z * 0.015) * 2.5
-               + Math.sin(x * 0.033 + z * 0.028) * 0.8;
+              + Math.sin(x * 0.033 + z * 0.028) * 0.8;
       pos.setY(i, h - 1.5);
     }
     geo.computeVertexNormals();
@@ -188,7 +197,9 @@ function Terrain() {
   );
 }
 
-// ── Scene content ───────────────────────────────────────────────────────────
+
+// ── Scene content ─────────────────────────────────────────────────────────────
+
 function SceneContent({ selectedId, onSelect }) {
   const snapshot = useTelemetryStore((s) => s.snapshot);
   if (!snapshot) return null;
@@ -198,8 +209,10 @@ function SceneContent({ selectedId, onSelect }) {
   return (
     <>
       <ambientLight intensity={0.25} color="#2a3d55" />
-      <directionalLight position={[100, 160, 80]} intensity={1.6} color="#fffaea" castShadow
-        shadow-mapSize-width={2048} shadow-mapSize-height={2048} />
+      <directionalLight
+        position={[100, 160, 80]} intensity={1.6} color="#fffaea" castShadow
+        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+      />
       <pointLight position={[0, -8, 0]} intensity={0.1} color="#221a0a" />
       <hemisphereLight skyColor="#0d1a33" groundColor="#1a1208" intensity={0.4} />
 
@@ -210,7 +223,7 @@ function SceneContent({ selectedId, onSelect }) {
         <Dish
           key={dish.id}
           id={dish.id}
-          position={[dish.x / 2.5, 0, dish.z / 2.5]}
+          position={[dish.x * WORLD_SCALE, 0, dish.z * WORLD_SCALE]}
           azDeg={dish.az_deg}
           elDeg={dish.el_deg}
           online={dish.online}
@@ -223,7 +236,7 @@ function SceneContent({ selectedId, onSelect }) {
       {large_telescopes.map((tel) => (
         <LargeTelescope
           key={tel.id}
-          position={[tel.x / 2.5, 0, tel.z / 2.5]}
+          position={[tel.x * WORLD_SCALE, 0, tel.z * WORLD_SCALE]}
           diameterM={tel.diameter_m}
           online={tel.online}
           name={tel.name}
@@ -233,7 +246,9 @@ function SceneContent({ selectedId, onSelect }) {
   );
 }
 
-// ── Export ──────────────────────────────────────────────────────────────────
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
 export default function Scene({ selectedId, onSelect }) {
   return (
     <Canvas

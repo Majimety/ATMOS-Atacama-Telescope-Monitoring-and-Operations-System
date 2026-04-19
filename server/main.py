@@ -28,6 +28,11 @@ def health():
     return {"status": "ok", "pointing": {"az": az, "el": el, "mode": mode}}
 
 
+# ── REST endpoints ────────────────────────────────────────────────────────────
+# สำหรับ external tools / testing / scripting เท่านั้น
+# การควบคุมปกติจาก Dashboard ผ่าน WebSocket /ws/telemetry
+
+
 class SlewCommand(BaseModel):
     az: float
     el: float
@@ -66,6 +71,9 @@ def api_set_mode(mode: str):
 def api_inject_fault(cmd: FaultCommand):
     inject_fault(cmd.dish_id, cmd.offline)
     return {"ok": True}
+
+
+# ── WebSocket ─────────────────────────────────────────────────────────────────
 
 
 @app.websocket("/ws/telemetry")

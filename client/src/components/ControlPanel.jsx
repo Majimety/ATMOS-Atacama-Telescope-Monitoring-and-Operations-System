@@ -14,12 +14,30 @@ const TARGETS = [
 ];
 
 function Label({ children }) {
-  return <div style={{ fontSize: 10, color: "#556", letterSpacing: "0.08em", marginBottom: 4 }}>{children}</div>;
+  return (
+    <div style={{
+      fontSize: 11,
+      color: "#6688aa",
+      letterSpacing: "0.05em",
+      marginBottom: 6,
+      fontWeight: "600",
+    }}>
+      {children}
+    </div>
+  );
 }
 
 function SectionTitle({ children }) {
   return (
-    <div style={{ padding: "7px 12px", borderBottom: "1px solid #0d1a24", fontSize: 11, color: "#00d4ff", letterSpacing: "0.1em" }}>
+    <div style={{
+      padding: "10px 16px",
+      borderBottom: "1px solid #0d1a24",
+      fontSize: 12,
+      color: "#00d4ff",
+      letterSpacing: "0.12em",
+      fontWeight: "600",
+      background: "#050d14",
+    }}>
       {children}
     </div>
   );
@@ -59,46 +77,125 @@ export default function ControlPanel({ send, snapshot, selectedId }) {
   }
 
   const inputStyle = {
-    background: "#050d14", border: "1px solid #1a2a3a", color: "#e0e0e0",
-    fontFamily: "monospace", fontSize: 13, padding: "5px 8px",
-    borderRadius: 3, width: "100%", boxSizing: "border-box",
+    background: "#050d14",
+    border: "1px solid #1a2a3a",
+    color: "#e0e0e0",
+    fontFamily: "monospace",
+    fontSize: 14,
+    padding: "8px 12px",
+    borderRadius: 4,
+    width: "100%",
+    boxSizing: "border-box",
+    outline: "none",
+    transition: "border-color 0.2s ease",
   };
 
-  const btnStyle = (color = "#00aaff") => ({
-    background: "transparent", border: `1px solid ${color}44`,
-    color, fontFamily: "monospace", fontSize: 11,
-    padding: "5px 10px", cursor: "pointer", borderRadius: 3,
-    width: "100%", marginTop: 4,
+  const btnStyle = (color = "#00aaff", variant = "outline") => ({
+    background: variant === "solid" ? color : "transparent",
+    border: `1px solid ${color}`,
+    color: variant === "solid" ? "#fff" : color,
+    fontFamily: "monospace",
+    fontSize: 12,
+    fontWeight: "600",
+    padding: "9px 14px",
+    cursor: "pointer",
+    borderRadius: 4,
+    width: "100%",
+    marginTop: 6,
+    transition: "all 0.2s ease",
+    letterSpacing: "0.05em",
   });
 
   const pointingColor = {
-    slewing: "#ffaa00", stow: "#ff8844", tracking: "#00ff88", idle: "#556",
-  }[pointing] || "#556";
+    slewing: "#ffaa00",
+    stow: "#ff8844",
+    tracking: "#00ff88",
+    idle: "#6688aa",
+  }[pointing] || "#6688aa";
 
   return (
-    <div style={{ fontFamily: "monospace", background: "#07101a", height: "100%", overflowY: "auto" }}>
+    <div style={{
+      fontFamily: "monospace",
+      background: "#07101a",
+      height: "100%",
+      overflowY: "auto",
+    }}>
 
       {/* Status strip */}
-      <div style={{ padding: "8px 12px", borderBottom: "1px solid #1a2a3a", display: "flex", gap: 12, alignItems: "center" }}>
-        <span style={{ fontSize: 10, color: "#556" }}>STATUS</span>
-        <span style={{ fontSize: 11, color: pointingColor, fontWeight: "bold", textTransform: "uppercase" }}>
+      <div style={{
+        padding: "12px 16px",
+        borderBottom: "1px solid #1a2a3a",
+        display: "flex",
+        gap: 14,
+        alignItems: "center",
+        background: "#050d14",
+      }}>
+        <span style={{
+          fontSize: 11,
+          color: "#6688aa",
+          fontWeight: "600",
+        }}>
+          STATUS
+        </span>
+        <span style={{
+          fontSize: 12,
+          color: pointingColor,
+          fontWeight: "bold",
+          textTransform: "uppercase",
+        }}>
           {pointing}
         </span>
-        <span style={{ fontSize: 10, color: "#334", marginLeft: "auto" }}>
-          AZ {snapshot?.commanded_target?.az_deg?.toFixed(1)}° EL {snapshot?.commanded_target?.el_deg?.toFixed(1)}°
-        </span>
+        <div style={{
+          marginLeft: "auto",
+          fontSize: 11,
+          color: "#445566",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end",
+          lineHeight: 1.4,
+        }}>
+          <div>AZ {snapshot?.commanded_target?.az_deg?.toFixed(1)}°</div>
+          <div>EL {snapshot?.commanded_target?.el_deg?.toFixed(1)}°</div>
+        </div>
       </div>
 
       {/* Pointing control */}
       <SectionTitle>POINTING CONTROL</SectionTitle>
-      <div style={{ padding: "10px 12px" }}>
+      <div style={{ padding: "14px 16px" }}>
         <Label>QUICK TARGETS</Label>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 10 }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 6,
+          marginBottom: 14,
+        }}>
           {TARGETS.map((t) => (
-            <button key={t.name} onClick={() => selectTarget(t)} style={{
-              ...btnStyle("#4488aa"),
-              fontSize: 10, padding: "4px 6px",
-            }}>
+            <button
+              key={t.name}
+              onClick={() => selectTarget(t)}
+              style={{
+                background: "transparent",
+                border: "1px solid #3a5566",
+                color: "#6699bb",
+                fontFamily: "monospace",
+                fontSize: 11,
+                fontWeight: "500",
+                padding: "7px 8px",
+                cursor: "pointer",
+                borderRadius: 4,
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#1a2a3a";
+                e.currentTarget.style.borderColor = "#00aaff";
+                e.currentTarget.style.color = "#00d4ff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.borderColor = "#3a5566";
+                e.currentTarget.style.color = "#6699bb";
+              }}
+            >
               {t.name}
             </button>
           ))}
@@ -106,81 +203,221 @@ export default function ControlPanel({ send, snapshot, selectedId }) {
 
         <Label>AZIMUTH (°)</Label>
         <input
-          type="number" min="0" max="360" step="0.1"
-          value={az} onChange={(e) => setAz(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 8 }}
+          type="number"
+          min="0"
+          max="360"
+          step="0.1"
+          value={az}
+          onChange={(e) => setAz(e.target.value)}
+          style={{ ...inputStyle, marginBottom: 12 }}
+          onFocus={(e) => e.currentTarget.style.borderColor = "#00aaff"}
+          onBlur={(e) => e.currentTarget.style.borderColor = "#1a2a3a"}
         />
 
         <Label>ELEVATION (°)</Label>
         <input
-          type="number" min="5" max="89" step="0.1"
-          value={el} onChange={(e) => setEl(e.target.value)}
-          style={{ ...inputStyle, marginBottom: 10 }}
+          type="number"
+          min="5"
+          max="89"
+          step="0.1"
+          value={el}
+          onChange={(e) => setEl(e.target.value)}
+          style={{ ...inputStyle, marginBottom: 14 }}
+          onFocus={(e) => e.currentTarget.style.borderColor = "#00aaff"}
+          onBlur={(e) => e.currentTarget.style.borderColor = "#1a2a3a"}
         />
 
-        <button onClick={doSlew} style={btnStyle("#00aaff")}>▶ SLEW</button>
-        <button onClick={() => send({ type: "stow" })} style={{ ...btnStyle("#ff4444"), marginTop: 6 }}>
+        <button
+          onClick={doSlew}
+          style={btnStyle("#00aaff", "outline")}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#00aaff";
+            e.currentTarget.style.color = "#fff";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#00aaff";
+          }}
+        >
+          ▶ SLEW
+        </button>
+        
+        <button
+          onClick={() => send({ type: "stow" })}
+          style={btnStyle("#ff4444", "outline")}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#ff4444";
+            e.currentTarget.style.color = "#fff";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#ff4444";
+          }}
+        >
           ■ STOW ALL
         </button>
       </div>
 
       {/* Band selector */}
       <SectionTitle>RECEIVER BAND</SectionTitle>
-      <div style={{ padding: "10px 12px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
-          {BANDS.map((b) => (
-            <button key={b} onClick={() => applyBand(b)} style={{
-              background: (sys?.band ?? band) === b ? "#003355" : "transparent",
-              border: `1px solid ${(sys?.band ?? band) === b ? "#00aaff" : "#1a2a3a"}`,
-              color: (sys?.band ?? band) === b ? "#00aaff" : "#445",
-              fontFamily: "monospace", fontSize: 10,
-              padding: "4px 0", cursor: "pointer", borderRadius: 3,
-            }}>
-              B{b}
-            </button>
-          ))}
+      <div style={{ padding: "14px 16px" }}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(5, 1fr)",
+          gap: 6,
+        }}>
+          {BANDS.map((b) => {
+            const isActive = (sys?.band ?? band) === b;
+            return (
+              <button
+                key={b}
+                onClick={() => applyBand(b)}
+                style={{
+                  background: isActive ? "#003355" : "transparent",
+                  border: `1px solid ${isActive ? "#00aaff" : "#2a3a4a"}`,
+                  color: isActive ? "#00d4ff" : "#6688aa",
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                  fontWeight: isActive ? "bold" : "500",
+                  padding: "6px 0",
+                  cursor: "pointer",
+                  borderRadius: 4,
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.borderColor = "#4a6a7a";
+                    e.currentTarget.style.color = "#88aacc";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.borderColor = "#2a3a4a";
+                    e.currentTarget.style.color = "#6688aa";
+                  }
+                }}
+              >
+                B{b}
+              </button>
+            );
+          })}
         </div>
-        <div style={{ marginTop: 8, fontSize: 11, color: "#aabbcc" }}>
-          {BAND_FREQ[sys?.band ?? band]} GHz center
+        <div style={{
+          marginTop: 12,
+          fontSize: 12,
+          color: "#aabbcc",
+          textAlign: "center",
+          padding: "8px",
+          background: "#0a141e",
+          borderRadius: 4,
+        }}>
+          <span style={{ color: "#00d4ff", fontWeight: "600" }}>
+            {BAND_FREQ[sys?.band ?? band]} GHz
+          </span>
+          <span style={{ color: "#556677", marginLeft: 6 }}>center</span>
         </div>
       </div>
 
       {/* Obs mode */}
       <SectionTitle>OBSERVATION MODE</SectionTitle>
-      <div style={{ padding: "10px 12px" }}>
-        {OBS_MODES.map((m) => (
-          <button key={m} onClick={() => applyMode(m)} style={{
-            ...btnStyle((sys?.obs_mode ?? mode) === m ? "#00ff88" : "#334"),
-            textAlign: "left", marginTop: 3, fontSize: 10,
-            background: (sys?.obs_mode ?? mode) === m ? "#001a0d" : "transparent",
-          }}>
-            {(sys?.obs_mode ?? mode) === m ? "● " : "○ "}{m.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
-      {/* Fault injection */}
-      <SectionTitle>FAULT INJECTION</SectionTitle>
-      <div style={{ padding: "10px 12px" }}>
-        <Label>DISH ID (e.g. DA-03)</Label>
-        <input
-          type="text"
-          placeholder={selectedId || "DA-01"}
-          value={faultDishId}
-          onChange={(e) => setFaultDishId(e.target.value.toUpperCase())}
-          style={{ ...inputStyle, marginBottom: 8 }}
-        />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          <button onClick={() => send({ type: "inject_fault", dish_id: faultDishId || selectedId || "DA-01", offline: true })}
-            style={btnStyle("#ff4444")}>
-            FORCE OFFLINE
-          </button>
-          <button onClick={() => send({ type: "inject_fault", dish_id: faultDishId || selectedId || "DA-01", offline: false })}
-            style={btnStyle("#00ff88")}>
-            RESTORE
-          </button>
+      <div style={{ padding: "14px 16px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {OBS_MODES.map((m) => {
+            const isActive = (sys?.mode ?? mode) === m;
+            return (
+              <button
+                key={m}
+                onClick={() => applyMode(m)}
+                style={{
+                  background: isActive ? "#1a2a3a" : "transparent",
+                  border: `1px solid ${isActive ? "#00aaff" : "#2a3a4a"}`,
+                  color: isActive ? "#00d4ff" : "#6688aa",
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                  fontWeight: isActive ? "600" : "500",
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                  borderRadius: 4,
+                  textAlign: "left",
+                  transition: "all 0.2s ease",
+                  textTransform: "capitalize",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "#0d1a24";
+                    e.currentTarget.style.borderColor = "#3a5566";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.borderColor = "#2a3a4a";
+                  }
+                }}
+              >
+                {m}
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {/* Emergency controls */}
+      <SectionTitle>EMERGENCY</SectionTitle>
+      <div style={{ padding: "14px 16px" }}>
+        <Label>INJECT FAULT (TESTING)</Label>
+        <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+          <input
+            type="text"
+            placeholder="Dish ID (e.g. DA-45)"
+            value={faultDishId}
+            onChange={(e) => setFaultDishId(e.target.value)}
+            style={{ ...inputStyle, flex: 1, fontSize: 12 }}
+            onFocus={(e) => e.currentTarget.style.borderColor = "#00aaff"}
+            onBlur={(e) => e.currentTarget.style.borderColor = "#1a2a3a"}
+          />
+          <button
+            onClick={() => {
+              if (faultDishId.trim()) {
+                send({ type: "inject_fault", dishId: faultDishId.trim() });
+                setFaultDishId("");
+              }
+            }}
+            style={{
+              ...btnStyle("#ffaa00", "outline"),
+              width: "auto",
+              padding: "8px 14px",
+              marginTop: 0,
+              fontSize: 11,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#ffaa00";
+              e.currentTarget.style.color = "#fff";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "#ffaa00";
+            }}
+          >
+            INJECT
+          </button>
+        </div>
+
+        <button
+          onClick={() => send({ type: "emergency_stop" })}
+          style={{
+            ...btnStyle("#ff3333", "solid"),
+            fontWeight: "bold",
+            fontSize: 13,
+            marginTop: 12,
+          }}
+        >
+          ⚠ EMERGENCY STOP
+        </button>
+      </div>
+
+      {/* Spacer */}
+      <div style={{ height: 20 }} />
     </div>
   );
 }

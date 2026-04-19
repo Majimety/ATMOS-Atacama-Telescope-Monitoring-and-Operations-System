@@ -37,7 +37,7 @@ function MetricRow({ label, value, unit, data, color, min, max, warn, crit }) {
       <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, alignItems: "baseline" }}>
         <span style={{ fontSize: 10, color: "#556", letterSpacing: "0.08em" }}>{label}</span>
         <span style={{ fontSize: 14, color: valColor, fontWeight: "bold" }}>
-          {typeof value === "number" ? value.toFixed(1) : "—"}
+          {typeof value === "number" ? value.toFixed(2) : "—"}
           <span style={{ fontSize: 10, color: "#445", marginLeft: 3 }}>{unit}</span>
         </span>
       </div>
@@ -47,21 +47,20 @@ function MetricRow({ label, value, unit, data, color, min, max, warn, crit }) {
 }
 
 export default function TelemetryGraphs() {
-  const history = useTelemetryStore((s) => s.history);
+  const history  = useTelemetryStore((s) => s.history);
   const snapshot = useTelemetryStore((s) => s.snapshot);
 
   if (!snapshot || history.length === 0) return (
-    <div style={{ padding: 16, color: "#334", fontSize: 12, fontFamily: "monospace" }}>Acquiring data...</div>
+    <div style={{ padding: 16, color: "#334", fontSize: 12, fontFamily: "monospace" }}>
+      Acquiring data...
+    </div>
   );
 
   const atm = snapshot.atmosphere;
   const sys = snapshot.system;
 
-  const tsysData   = history.map((h) => h.avg_tsys_k);
-  const pwvData    = history.map((h) => h.pwv_mm);
-  const windData   = history.map((h) => h.wind_ms);
-  const tauData    = history.map((h) => h.tau * 1000); // scale to mTau
-  const onlineData = history.map((h) => h.online_count);
+  // tau_225ghz จริงอยู่ที่ ~0.030–0.060 scale เป็น mτ (×1000) เพื่ออ่านง่าย
+  const tauScaled = atm.tau_225ghz * 1000;
 
   return (
     <div style={{ fontFamily: "monospace", background: "#07101a", height: "100%", overflowY: "auto" }}>
@@ -91,7 +90,7 @@ export default function TelemetryGraphs() {
         label="AVG Tsys"
         value={snapshot.alma.avg_tsys_k}
         unit="K"
-        data={tsysData}
+        data={history.map((h) => h.avg_tsys_k)}
         color="#00aaff"
         min={40} max={150}
         warn={100} crit={130}
@@ -100,7 +99,7 @@ export default function TelemetryGraphs() {
         label="WIND SPEED"
         value={atm.wind_ms}
         unit="m/s"
-        data={windData}
+        data={history.map((h) => h.wind_ms)}
         color="#ffaa00"
         min={0} max={35}
         warn={20} crit={25}
@@ -109,18 +108,18 @@ export default function TelemetryGraphs() {
         label="PWV"
         value={atm.pwv_mm}
         unit="mm"
-        data={pwvData}
+        data={history.map((h) => h.pwv_mm)}
         color="#aa55ff"
         min={0} max={3}
         warn={2.0}
       />
       <MetricRow
-        label="τ₂₂₅GHz × 1000"
-        value={atm.tau_225ghz * 1000}
+        label="τ₂₂₅GHz"
+        value={tauScaled}
         unit="mτ"
-        data={tauData}
+        data={history.map((h) => h.tau * 1000)}
         color="#55ddaa"
-        min={25} max={50}
+        min={20} max={60}
       />
       <MetricRow
         label="TEMPERATURE"
@@ -131,7 +130,7 @@ export default function TelemetryGraphs() {
         min={-20} max={5}
       />
 
-      {/* Online count bar */}
+      {/* Dishes online bar */}
       <div style={{ padding: "8px 12px", borderBottom: "1px solid #0d1a24" }}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
           <span style={{ fontSize: 10, color: "#556" }}>DISHES ONLINE</span>
@@ -150,7 +149,7 @@ export default function TelemetryGraphs() {
         </div>
       </div>
 
-      {/* Seeing */}
+      {/* Seeing + Humidity */}
       <div style={{ padding: "8px 12px" }}>
         <div style={{ fontSize: 10, color: "#556", marginBottom: 2 }}>SEEING</div>
         <div style={{ fontSize: 13, color: "#ccddee" }}>

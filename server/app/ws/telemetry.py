@@ -4,7 +4,12 @@ import logging
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.simulation.alma_sim import get_system_snapshot, set_band, set_obs_mode, inject_fault
+from app.simulation.alma_sim import (
+    get_system_snapshot,
+    set_band,
+    set_obs_mode,
+    inject_fault,
+)
 from app.simulation.pointing_sim import controller
 
 
@@ -29,11 +34,12 @@ class ConnectionPool:
             return
         message = json.dumps(payload)
         results = await asyncio.gather(
-            *[ws.send_text(message) for ws in self._connections],
+            *[ws.send_text(message) for ws in list(self._connections)],
             return_exceptions=True,
         )
         dead = {
-            ws for ws, result in zip(list(self._connections), results)
+            ws
+            for ws, result in zip(list(self._connections), results)
             if isinstance(result, Exception)
         }
         self._connections -= dead
@@ -46,9 +52,7 @@ async def telemetry_endpoint(ws: WebSocket):
     await pool.connect(ws)
     try:
         while True:
-            # ก้าว pointing controller ไปข้างหน้า 1 frame
             az, el, mode = controller.step()
-
             snapshot = get_system_snapshot(az_commanded=az, el_commanded=el)
             snapshot["pointing_mode"] = mode
 
@@ -59,9 +63,17 @@ async def telemetry_endpoint(ws: WebSocket):
                 command = json.loads(raw)
                 _handle_command(command)
             except asyncio.TimeoutError:
-                pass
+                pass  # ไม่มี command จาก client รอบนี้ — ปกติ
+            except json.JSONDecodeError:
+                logger.warning("Received invalid JSON from client — ignored")
 
     except WebSocketDisconnect:
+        logger.info("Client disconnected normally")
+    except Exception as e:
+        # จับ network drop, client crash และ error อื่นๆ ที่ไม่คาดคิด
+        logger.warning(f"WebSocket error: {e}")
+    finally:
+        # finally การันตีว่า disconnect ถูกเรียกเสมอ ไม่ว่า error แบบไหน
         pool.disconnect(ws)
 
 
@@ -93,3 +105,6 @@ def _handle_command(command: dict):
         offline = bool(command.get("offline", True))
         inject_fault(dish_id, offline)
         logger.info(f"Fault inject: {dish_id} offline={offline}")
+
+    else:
+        logger.warning(f"Unknown command type: {cmd!r}")
