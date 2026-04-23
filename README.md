@@ -138,7 +138,9 @@ where H is the hour angle and δ is source declination. Both (u, v) and conjugat
 | **Pointing Simulation** | Realistic slew rate (2°/s az, 1°/s el), smooth interpolation, stow position El 15° |
 | **JWT + RBAC** | Four-tier access control: viewer → operator → engineer → admin |
 | **Resilient WebSocket** | Exponential backoff (1s–60s), IndexedDB offline buffer, data-gap detection, RTT display |
-| **InfluxDB Integration** | `influx_writer.py` time-series writer + Flux schema + 24 h seed script |
+| **InfluxDB Integration** | Batch-buffered async writer (flush every 50 points or 10 s); lazy init; auto-disables when `INFLUX_TOKEN` unset; errors suppressed so telemetry loop is unaffected |
+| **Observation Scheduler** | Priority-based async queue (`urgent/high/normal/low`) with real-time constraint evaluation (elevation, PWV, wind); 1 s tick engine; pre-seeded with 5 targets (Sgr A\*, M87, Orion KL, 3C 273, Crab Nebula); operator+ reorder/remove; 20-entry history log |
+| **Auth UI** | Terminal-aesthetic login page (CRT scanlines, blinking cursor, amber prompt); quick-fill buttons for 3 demo roles; role badge + username + logout in dashboard header; demo mode local fallback when backend unreachable |
 | **Docker Compose** | Traefik + TLS, InfluxDB 2.7, Grafana 11, Redis, multi-stage Dockerfiles |
 | **REST API** | Swagger UI at `/docs`, full OpenAPI 3.1 schema |
 | **Sparkline Graphs** | Live Tsys, PWV, wind, τ history with configurable thresholds |
@@ -210,6 +212,14 @@ npm run dev
 
 Frontend runs at `http://localhost:5173`
 
+> **Demo accounts** — if the backend is unreachable, the login page validates locally:
+>
+> | Role | Username | Password |
+> |------|----------|----------|
+> | admin | `admin` | `admin123` |
+> | operator | `operator` | `op123` |
+> | observer | `observer` | `obs123` |
+
 ### Production (Docker)
 
 ```bash
@@ -232,11 +242,17 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
 |--------|------|-------------|
 | `GET` | `/` | System status and version |
 | `GET` | `/health` | Health check with current pointing state |
+| `GET` | `/api/telescopes/` | List all antenna states |
+| `GET` | `/api/atmosphere/` | Current meteorological data |
 | `POST` | `/api/slew` | Command array to Az/El (body: `{az, el}`) |
 | `POST` | `/api/stow` | Stow all antennas to El 15° |
 | `POST` | `/api/band/{band}` | Set receiver band (1–10) |
 | `POST` | `/api/mode/{mode}` | Set observation mode |
 | `POST` | `/api/fault` | Inject or clear antenna fault |
+| `GET` | `/api/scheduler` | Get scheduler state (active job + queue + history) |
+| `POST` | `/api/scheduler/jobs` | Enqueue a new observation job |
+| `DELETE` | `/api/scheduler/jobs/{id}` | Remove a queued job (operator+ only) |
+| `POST` | `/api/scheduler/skip` | Skip the current active job (operator+ only) |
 
 ### WebSocket
 
@@ -249,7 +265,8 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
   "system":    { "band": 6, "freq_ghz": 230, "obs_mode": "interferometry", "target_name": "Sgr A*", ... },
   "atmosphere":{ "pwv_mm": 0.52, "tau_225ghz": 0.033, "wind_ms": 8.4, "temp_c": -6.2, "source": "live" },
   "alma":      { "dishes": [...], "online_count": 63, "total_count": 64, "avg_tsys_k": 80.5 },
-  "pointing_mode": "tracking"
+  "pointing_mode": "tracking",
+  "scheduler": { "active": { "target": "Sgr A*", "progress": 0.42 }, "queue_length": 3 }
 }
 ```
 
@@ -295,10 +312,10 @@ All 10 ALMA bands (B1–B10) are selectable in the control panel.
 
 ### Near-term
 
-- [ ] **Observation scheduling queue** — queue-based target sequencing with elevation constraints and time estimates
-- [ ] **InfluxDB live writer activation** — connect `influx_writer.py` to the WebSocket broadcast loop for persistent telemetry history
+- [x] **Observation scheduling queue** — priority-based async engine with real-time constraint evaluation (elevation, PWV, wind)
+- [x] **InfluxDB live writer activation** — batch-buffered writer connected to the WebSocket broadcast loop; lazy init; graceful degradation
+- [x] **Auth UI** — terminal-aesthetic login page with role indicator, demo mode fallback, and logout in dashboard header
 - [ ] **Grafana dashboard templates** — pre-built panels for Tsys trends, PWV history, and array health over time
-- [ ] **Auth UI** — login modal and role indicator in the dashboard header
 
 ### Medium-term
 
@@ -322,9 +339,10 @@ ATMOS/
 ├── server/
 │   ├── main.py                   FastAPI application + REST routes
 │   ├── auth.py                   JWT authentication + RBAC (4 roles)
-│   ├── influx_writer.py          InfluxDB time-series writer
+│   ├── influx_writer.py          InfluxDB batch writer (lazy init, auto-disable)
 │   ├── requirements.txt
 │   └── app/
+│       ├── scheduler.py          Observation scheduling queue + async tick engine
 │       ├── models/
 │       │   ├── telescope.py      Pydantic data models
 │       │   └── telemetry.py      ConnectionPool (WebSocket manager)
@@ -336,14 +354,15 @@ ATMOS/
 │       │   ├── atmosphere_sim.py Fallback atmospheric simulation
 │       │   └── weather_fetcher.py Open-Meteo API client + PWV derivation
 │       ├── ws/
-│       │   ├── telemetry.py      WebSocket endpoint + command dispatch
+│       │   ├── telemetry.py      WebSocket endpoint + command dispatch + scheduler/influx wiring
 │       │   └── events.py         Event type constants
 │       └── api/
 │           ├── telescopes.py     REST: antenna listing
 │           ├── atmosphere.py     REST: meteorological data
-│           └── control.py        REST: slew / stow / band / fault
+│           ├── control.py        REST: slew / stow / band / fault
+│           └── scheduler.py      REST: job CRUD + skip
 ├── client/src/
-│   ├── App.jsx                   Root layout + tab navigation
+│   ├── App.jsx                   Root layout + login gate + role badge + SCHED tab
 │   ├── hooks/
 │   │   ├── useWebSocket.js       WebSocket connection hook
 │   │   └── useTelemetry.js       Snapshot → store → alert pipeline
@@ -352,13 +371,14 @@ ATMOS/
 │   │   ├── alertStore.js         Zustand: alert queue (max 300 events)
 │   │   ├── alertEngine.js        Rule-based alert detection
 │   │   ├── telescopeStore.js     Zustand: dish selection + filter state
-│   │   └── auth.js               Authentication state
+│   │   └── auth.js               Authentication state + demo mode local fallback
 │   ├── components/
 │   │   ├── Dashboard.jsx         System status overview panel
 │   │   ├── TelescopePanel.jsx    Scrollable antenna list
 │   │   ├── ControlPanel.jsx      SCADA control interface
 │   │   ├── TelemetryGraphs.jsx   Live sparkline graphs
 │   │   ├── AlertFeed.jsx         Event log with severity triage
+│   │   ├── SchedulerPanel.jsx    Observation queue UI + history log
 │   │   ├── UVCoveragePlot.jsx    UV-plane visualisation (interferometry)
 │   │   └── BaselineCorrelator.jsx Visibility matrix + RFI flagging
 │   ├── three/
@@ -366,6 +386,9 @@ ATMOS/
 │   │   ├── DishMesh.jsx          Antenna 3D model (Az/El animation)
 │   │   ├── SkyDome.jsx           Night sky + sidereal star rotation
 │   │   └── TerrainMesh.jsx       Atacama plateau terrain
+│   ├── pages/
+│   │   ├── LoginPage.jsx         Terminal-aesthetic auth screen (CRT + amber prompt)
+│   │   └── Config.jsx            Settings page
 │   └── libs/
 │       └── resilientWS.js        WebSocket: backoff, buffer, gap detect
 ├── docker/

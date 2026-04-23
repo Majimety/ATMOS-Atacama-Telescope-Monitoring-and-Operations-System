@@ -46,6 +46,10 @@
 │    POST /api/control/slew     — point to az/el              │
 │    POST /api/control/band/6   — set receiver band           │
 │    POST /api/control/fault    — inject/clear fault          │
+│    GET  /api/scheduler        — queue state + history       │
+│    POST /api/scheduler/jobs   — enqueue observation job     │
+│    DEL  /api/scheduler/jobs/{id} — remove job (operator+)   │
+│    POST /api/scheduler/skip   — skip active job (operator+) │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -71,15 +75,77 @@
    - ~50 dishes × {az, el, tsys, signal, online} + atmosphere + system state
    - Broadcast over WebSocket every 1 second
 
+## Scheduler
+
+```
+REST /api/scheduler/*
+  └── ObservationScheduler (asyncio, 1s tick)
+        ├── evaluate_constraints()
+        │     elevation > min_el_deg
+        │     AND PWV < max_pwv_mm
+        │     AND wind < critical threshold
+        ├── start_job()    begins observation, streams progress via WS
+        └── complete_job() moves to history (last 20 entries)
+
+ObservationJob fields:
+  id, target, ra, dec, band, duration_s,
+  min_el_deg, max_pwv_mm, priority (urgent/high/normal/low)
+
+Pre-seeded targets: Sgr A*, M87, Orion KL, 3C 273, Crab Nebula
+Queue operations:   enqueue, reorder (▲▼), remove ✕ (operator+ only)
+```
+
+## Auth Flow
+
+```
+POST /api/auth/login
+  ├── backend available  → validate credentials → JWT
+  │                        (expiry: ATMOS_ACCESS_TOKEN_EXPIRE_MINUTES)
+  └── backend unreachable → demo mode local validation
+                            (no python-jose required on client)
+
+Roles (descending access):
+  admin > engineer > operator > observer
+
+UI gate:
+  LoginPage.jsx renders before Dashboard
+  → on success: role badge + username + LOGOUT button in App.jsx header
+  → SCHED tab available in right panel for all authenticated roles
+  → scheduler write operations (reorder/remove/skip) gated to operator+
+
+Demo accounts (local fallback):
+  admin    / admin123
+  operator / op123
+  observer / obs123
+```
+
+## InfluxDB Write Path
+
+```
+telemetry tick (1 Hz)
+  └── influx_writer.write()
+        ├── buffer < 50 points AND < 10 s elapsed → hold
+        └── flush condition met → write to InfluxDB
+              ├── dish_telemetry   per-dish: az, el, tsys, signal, online
+              ├── array_summary    online_count, avg_tsys
+              └── atmosphere       pwv_mm, tau_225ghz, wind_ms, temp_c
+        error → suppress + log WARNING (telemetry loop unaffected)
+
+Startup behaviour:
+  INFLUX_TOKEN unset → writer auto-disabled (lazy init, no import crash)
+  INFLUX_TOKEN set   → persistent async client initialised on first write
+```
+
 ## File Structure
 
 ```
 server/
   main.py                      FastAPI app + REST routes
   auth.py                      JWT + RBAC (4 roles)
-  influx_writer.py             InfluxDB time-series writer
+  influx_writer.py             InfluxDB batch writer (lazy init, auto-disable)
   requirements.txt
   app/
+    scheduler.py               ObservationJob dataclass + ObservationScheduler engine
     models/
       telescope.py             Pydantic data models
       telemetry.py             ConnectionPool (legacy, see ws/)
@@ -91,15 +157,16 @@ server/
       atmosphere_sim.py        Fallback atmospheric simulation
       weather_fetcher.py       Open-Meteo API client
     ws/
-      telemetry.py             WebSocket endpoint + command handler
+      telemetry.py             WebSocket endpoint + command handler + scheduler/influx wiring
       events.py                Event type constants
     api/
       telescopes.py            REST: dish listing
       atmosphere.py            REST: met data
       control.py               REST: slew/stow/band/fault
+      scheduler.py             REST: job CRUD + skip
 
 client/src/
-  App.jsx                      Root component + layout
+  App.jsx                      Root component + login gate + role badge + SCHED tab
   main.jsx                     React entry point
   hooks/
     useWebSocket.js            Basic WebSocket hook
@@ -109,13 +176,14 @@ client/src/
     alertStore.js              Zustand: alert queue
     alertEngine.js             Rule-based alert detection
     telescopeStore.js          Zustand: selection + filter state
-    auth.js                    Auth state (JWT, role)
+    auth.js                    Auth state (JWT, role) + demo mode local fallback
   components/
     Dashboard.jsx              System status overview
     TelescopePanel.jsx         Scrollable dish list
     ControlPanel.jsx           Slew/stow/band/mode controls
     TelemetryGraphs.jsx        Live sparkline graphs
     AlertFeed.jsx              Event log
+    SchedulerPanel.jsx         Observation queue + progress bar + history log
     UVCoveragePlot.jsx         UV-plane coverage (science)
     BaselineCorrelator.jsx     Baseline correlation matrix (science)
   three/
@@ -124,7 +192,7 @@ client/src/
     SkyDome.jsx                Night sky + stars
     TerrainMesh.jsx            Atacama plateau terrain
   pages/
-    Main.jsx                   Router page wrapper
+    LoginPage.jsx              Terminal-aesthetic auth screen (CRT scanlines, amber prompt)
     Config.jsx                 Settings page
   libs/
     resilientWS.js             Production WebSocket (backoff, buffer)
