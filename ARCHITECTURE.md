@@ -4,20 +4,20 @@
 ┌─────────────────────────────────────────────────────────────┐
 │                        BROWSER                              │
 │                                                             │
-│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐  │
-│  │  3D Scene   │  │  Dashboard   │  │   Control Panel   │  │
-│  │  (Three.js) │  │  (Zustand)   │  │   (WebSocket TX)  │  │
-│  └──────┬──────┘  └──────┬───────┘  └─────────┬─────────┘  │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐   │
+│  │  3D Scene   │  │  Dashboard   │  │   Control Panel   │   │
+│  │  (Three.js) │  │  (Zustand)   │  │   (WebSocket TX)  │   │
+│  └──────┬──────┘  └──────┬───────┘  └──────────┬────────┘   │
 │         │                │                     │            │
 │  ┌──────▼────────────────▼─────────────────────▼─────────┐  │
-│  │             useTelemetryStore (Zustand)                │  │
-│  │             useAlertStore (Zustand)                    │  │
-│  │             useTelescopeStore (Zustand)                │  │
+│  │             useTelemetryStore (Zustand)               │  │
+│  │             useAlertStore (Zustand)                   │  │
+│  │             useTelescopeStore (Zustand)               │  │
 │  └──────────────────────────┬────────────────────────────┘  │
 │                             │                               │
 │  ┌──────────────────────────▼────────────────────────────┐  │
 │  │           useWebSocket / resilientWS.js               │  │
-│  │       (reconnect, buffer, gap detection)               │  │
+│  │         (reconnect, buffer, gap detection)            │  │
 │  └──────────────────────────┬────────────────────────────┘  │
 └─────────────────────────────┼───────────────────────────────┘
                               │ WebSocket (JSON, 1Hz)
@@ -33,8 +33,8 @@
 │  ┌──────────────────────────▼────────────────────────────┐  │
 │  │           app/simulation/alma_sim.py                  │  │
 │  │     get_system_snapshot() — builds full JSON frame    │  │
-│  └────┬────────────┬────────────────┬────────────────────┘  │
-│       │            │                │                        │
+│  └────┬────────────┬───────────────┬─────────────────────┘  │
+│       │            │               │                        │
 │  ┌────▼────┐  ┌────▼────┐  ┌───────▼──────┐                 │
 │  │physics  │  │pointing │  │weather_fetch │ ← Open-Meteo    │
 │  │_models  │  │_sim.py  │  │er.py (async) │   (real data)   │
