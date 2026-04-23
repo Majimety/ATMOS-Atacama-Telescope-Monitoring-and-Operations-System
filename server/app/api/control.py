@@ -3,7 +3,6 @@ control.py — REST control endpoints (slew, stow, band, mode, fault)
 สำหรับ external tools / scripting / testing
 การควบคุมปกติจาก Dashboard ผ่าน WebSocket /ws/telemetry
 """
-
 from fastapi import APIRouter
 from pydantic import BaseModel
 from app.simulation.alma_sim import (
@@ -52,13 +51,7 @@ def set_band(band: int):
 
 @router.post("/mode/{mode}")
 def set_mode(mode: str):
-    valid_modes = {
-        "interferometry",
-        "single-dish",
-        "vlbi",
-        "commissioning",
-        "maintenance",
-    }
+    valid_modes = {"interferometry", "single-dish", "vlbi", "commissioning", "maintenance"}
     if mode not in valid_modes:
         return {"error": f"Unknown mode. Valid: {valid_modes}"}, 400
     cmd_set_mode(mode)

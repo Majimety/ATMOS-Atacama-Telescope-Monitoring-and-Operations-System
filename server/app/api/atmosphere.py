@@ -1,7 +1,6 @@
 """
 atmosphere.py — REST endpoint สำหรับอ่าน atmospheric data
 """
-
 from fastapi import APIRouter
 from app.simulation.weather_fetcher import fetch_chajnantor_weather
 from app.simulation.atmosphere_sim import simulate_atmosphere

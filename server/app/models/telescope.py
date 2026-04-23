@@ -1,7 +1,6 @@
 """
 telescope.py — Pydantic models สำหรับ telescope state
 """
-
 from __future__ import annotations
 from typing import Optional
 from pydantic import BaseModel

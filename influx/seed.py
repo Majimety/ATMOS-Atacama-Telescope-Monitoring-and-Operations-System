@@ -15,19 +15,17 @@ from datetime import datetime, timedelta, timezone
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 
-INFLUX_URL = os.getenv("INFLUX_URL", "http://localhost:8086")
+INFLUX_URL   = os.getenv("INFLUX_URL",   "http://localhost:8086")
 INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "atmos-dev-token")
-INFLUX_ORG = os.getenv("INFLUX_ORG", "atmos")
-BUCKET_TEL = "atmos_telemetry"
-BUCKET_ATM = "atmos_atmosphere"
+INFLUX_ORG   = os.getenv("INFLUX_ORG",  "atmos")
+BUCKET_TEL   = "atmos_telemetry"
+BUCKET_ATM   = "atmos_atmosphere"
 
-DISH_IDS = (
-    [f"A{i:03d}" for i in range(1, 7)]
-    + [f"B{i:03d}" for i in range(1, 15)]
-    + [f"C{i:03d}" for i in range(1, 15)]
-    + [f"D{i:03d}" for i in range(1, 15)]
-    + [f"ACA{i:02d}" for i in range(1, 13)]
-)
+DISH_IDS = [f"A{i:03d}" for i in range(1, 7)] + \
+           [f"B{i:03d}" for i in range(1, 15)] + \
+           [f"C{i:03d}" for i in range(1, 15)] + \
+           [f"D{i:03d}" for i in range(1, 15)] + \
+           [f"ACA{i:02d}" for i in range(1, 13)]
 
 
 def main():
@@ -36,9 +34,7 @@ def main():
 
     now = datetime.now(timezone.utc)
     start = now - timedelta(hours=24)
-    step = timedelta(
-        seconds=60
-    )  # 1 point per minute (not 1Hz — too much data for seed)
+    step = timedelta(seconds=60)  # 1 point per minute (not 1Hz — too much data for seed)
 
     points = []
     t = start
@@ -70,45 +66,27 @@ def main():
             p = (
                 Point("dish_telemetry")
                 .tag("dish_id", dish_id)
-                .tag(
-                    "ant_type",
-                    (
-                        "DA"
-                        if dish_id.startswith("A")
-                        else "CM" if dish_id.startswith("ACA") else "DV"
-                    ),
-                )
+                .tag("ant_type", "DA" if dish_id.startswith("A") else "CM" if dish_id.startswith("ACA") else "DV")
                 .field("online", online)
                 .field("az_deg", (180 + math.sin(t.timestamp() / 3600) * 10) % 360)
                 .field("el_deg", 52.4 + math.cos(t.timestamp() / 7200) * 5)
                 .time(ts, WritePrecision.SECONDS)
             )
-            if tsys:
-                p = p.field("tsys_k", tsys)
-            if signal:
-                p = p.field("signal_dbm", signal)
+            if tsys: p = p.field("tsys_k", tsys)
+            if signal: p = p.field("signal_dbm", signal)
             points.append(p)
 
         t += step
 
         if len(points) >= 5000:
-            write_api.write(
-                bucket=BUCKET_TEL,
-                record=[p for p in points if p._name == "dish_telemetry"],
-            )
-            write_api.write(
-                bucket=BUCKET_ATM, record=[p for p in points if p._name == "atmosphere"]
-            )
+            write_api.write(bucket=BUCKET_TEL, record=[p for p in points if p._name == "dish_telemetry"])
+            write_api.write(bucket=BUCKET_ATM, record=[p for p in points if p._name == "atmosphere"])
             print(f"Wrote {len(points)} points up to {t.isoformat()}")
             points = []
 
     if points:
-        write_api.write(
-            bucket=BUCKET_TEL, record=[p for p in points if p._name == "dish_telemetry"]
-        )
-        write_api.write(
-            bucket=BUCKET_ATM, record=[p for p in points if p._name == "atmosphere"]
-        )
+        write_api.write(bucket=BUCKET_TEL, record=[p for p in points if p._name == "dish_telemetry"])
+        write_api.write(bucket=BUCKET_ATM, record=[p for p in points if p._name == "atmosphere"])
 
     print(f"Seed complete — {(now - start).total_seconds() / 60:.0f} minutes of data")
     client.close()

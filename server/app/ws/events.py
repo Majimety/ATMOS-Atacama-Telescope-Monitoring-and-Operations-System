@@ -19,16 +19,16 @@ Server → Client (telemetry stream):
 """
 
 # Event type constants — ใช้ทั้งใน Python backend และ document ให้ JS frontend
-TELEMETRY = "telemetry"
-SLEW = "slew"
-STOW = "stow"
-SET_BAND = "set_band"
-SET_MODE = "set_mode"
+TELEMETRY   = "telemetry"
+SLEW        = "slew"
+STOW        = "stow"
+SET_BAND    = "set_band"
+SET_MODE    = "set_mode"
 INJECT_FAULT = "inject_fault"
 CLEAR_FAULT = "clear_fault"
-PING = "ping"
-PONG = "pong"
-ERROR = "error"
+PING        = "ping"
+PONG        = "pong"
+ERROR       = "error"
 
 ALL_CLIENT_COMMANDS = {SLEW, STOW, SET_BAND, SET_MODE, INJECT_FAULT, CLEAR_FAULT, PING}
-ALL_SERVER_EVENTS = {TELEMETRY, PONG, ERROR}
+ALL_SERVER_EVENTS   = {TELEMETRY, PONG, ERROR}

@@ -2,16 +2,15 @@
 atmosphere_sim.py — Atmospheric opacity and PWV simulation
 ใช้เป็น fallback เมื่อ weather_fetcher ไม่สามารถดึงข้อมูลจริงได้
 """
-
 import math
 import random
 import time
 
 
 # Typical Chajnantor conditions
-_BASE_PWV = 0.5  # mm PWV baseline (excellent site)
-_BASE_WIND = 8.0  # m/s baseline wind
-_BASE_TEMP = -8.0  # °C
+_BASE_PWV = 0.5       # mm PWV baseline (excellent site)
+_BASE_WIND = 8.0      # m/s baseline wind
+_BASE_TEMP = -8.0     # °C
 
 
 def simulate_atmosphere(t: float | None = None) -> dict:

@@ -3,6 +3,7 @@ telemetry.py — WebSocket handler สำหรับ ATMOS
 
 รับ connection จาก Frontend แล้ว stream snapshot ทุก 1 วินาที
 รับ command จาก Frontend (slew, stow, set_band, set_mode, inject_fault)
+ส่ง snapshot ไป InfluxDB และ Scheduler ทุก tick
 """
 
 import asyncio
@@ -20,7 +21,8 @@ from app.simulation.alma_sim import (
     cmd_inject_fault,
     cmd_clear_fault,
 )
-
+from app.scheduler import scheduler
+from influx_writer import influx_writer
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,10 @@ class ConnectionPool:
         self._connections.discard(ws)
         logger.info(f"Client disconnected — total: {len(self._connections)}")
 
+    @property
+    def count(self) -> int:
+        return len(self._connections)
+
     async def broadcast(self, payload: dict):
         if not self._connections:
             return
@@ -52,7 +58,7 @@ class ConnectionPool:
 
         dead = {
             ws
-            for ws, result in zip(self._connections, results)
+            for ws, result in zip(list(self._connections), results)
             if isinstance(result, Exception)
         }
         self._connections -= dead
@@ -65,20 +71,32 @@ async def telemetry_endpoint(ws: WebSocket):
     """
     WebSocket endpoint — ws://localhost:8000/ws/telemetry
 
-    Loop:
-      1. build snapshot (async — ดึง weather จริงถ้ามี)
-      2. ส่งไป client
-      3. รอรับ command สูงสุด 1 วินาที (non-blocking)
-      4. ถ้ามี command → process แล้วกลับขึ้น 1
+    Per-tick pipeline:
+      1. Build snapshot (async — fetches live weather if available)
+      2. Advance scheduler (checks constraints, starts/completes jobs)
+      3. Write to InfluxDB (non-blocking, batched, never raises)
+      4. Inject scheduler state into snapshot
+      5. Broadcast to all connected clients
+      6. Wait up to 1s for incoming command
     """
     await pool.connect(ws)
 
     try:
         while True:
-            # get_system_snapshot เป็น async ตอนนี้
+            # 1. Build telemetry snapshot
             snapshot = await get_system_snapshot()
+
+            # 2. Advance scheduler with live atmospheric data
+            await scheduler.tick(snapshot)
+            snapshot["scheduler"] = scheduler.get_state()
+
+            # 3. Write to InfluxDB (fire-and-forget style, errors are swallowed)
+            asyncio.ensure_future(influx_writer.write(snapshot))
+
+            # 4. Send to this client
             await ws.send_text(json.dumps(snapshot, default=str))
 
+            # 5. Listen for command (1s window)
             try:
                 raw = await asyncio.wait_for(ws.receive_text(), timeout=1.0)
                 _handle_command(json.loads(raw))
@@ -93,15 +111,11 @@ async def telemetry_endpoint(ws: WebSocket):
 
 
 def _handle_command(command: dict):
-    """
-    Process command จาก Frontend
-    ใช้ cmd_* functions จาก alma_sim ซึ่งแก้ global state
-    """
     cmd_type = command.get("type")
 
     if cmd_type == "slew":
-        az = float(command.get("az", 183.7))
-        el = float(command.get("el", 52.4))
+        az   = float(command.get("az", 183.7))
+        el   = float(command.get("el", 52.4))
         name = command.get("target_name", "Custom")
         cmd_slew(az, el, name)
         logger.info(f"SLEW → Az:{az}° El:{el}° ({name})")
@@ -131,7 +145,6 @@ def _handle_command(command: dict):
         dish_id = command.get("dishId", "")
         if dish_id:
             cmd_clear_fault(dish_id)
-            logger.info(f"FAULT CLEARED → {dish_id}")
 
     elif cmd_type == "emergency_stop":
         cmd_stow()

@@ -3,10 +3,13 @@ import { useWebSocket } from "./hooks/useWebSocket";
 import { useTelemetryStore } from "./store/telemetryStore";
 import { useAlertStore } from "./store/alertStore";
 import { detectAlerts } from "./store/alertEngine";
+import { useAuthStore, hasRole } from "./store/auth";
 import Scene from "./three/Scene";
 import AlertFeed from "./components/AlertFeed";
 import TelemetryGraphs from "./components/TelemetryGraphs";
 import ControlPanel from "./components/ControlPanel";
+import SchedulerPanel from "./components/SchedulerPanel";
+import LoginPage from "./pages/LoginPage";
 
 const WS_URL = "ws://localhost:8000/ws/telemetry";
 
@@ -180,6 +183,13 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [rightTab,   setRightTab]   = useState("control");
 
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const authUser   = useAuthStore((s) => s.user);
+  const authLogout = useAuthStore((s) => s.logout);
+  const demoMode   = useAuthStore((s) => s.demoMode);
+  const isAuth     = useAuthStore((s) => s.isAuthenticated);
+  const [showLogin, setShowLogin] = useState(!isAuth());
+
   const handleMessage = useCallback((data) => {
     setSnapshot(data);
     detectAlerts(data).forEach(pushAlert);
@@ -239,6 +249,11 @@ export default function App() {
   const utcTime = new Date(snapshot.timestamp).toUTCString().slice(17, 25);
 
   // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Login gate ──────────────────────────────────────────────────────────
+  if (showLogin) {
+    return <LoginPage onLogin={() => setShowLogin(false)} />;
+  }
+
   return (
     <div style={{
       background: "var(--bg-deep)",
@@ -376,20 +391,42 @@ export default function App() {
           </div>
         )}
 
-        {/* UTC — pushed to far right */}
-        <div style={{
-          marginLeft: "auto",
-          padding: "0 16px",
-          borderLeft: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          fontSize: 11,
-          color: "var(--text-faint)",
-          fontWeight: "500",
-          flexShrink: 0,
-          letterSpacing: "0.05em",
-        }}>
-          {utcTime} UTC
+        {/* Auth user + UTC — pushed to far right */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "stretch", flexShrink: 0 }}>
+          {authUser && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "0 12px", borderLeft: "1px solid var(--border)",
+              fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.06em",
+            }}>
+              <span style={{
+                color: { viewer:"#00d4ff", operator:"#00ff88", engineer:"#ffaa00", admin:"#ff6644" }[authUser.role] ?? "#00d4ff",
+                fontWeight: 700,
+              }}>
+                {authUser.role.toUpperCase()}
+              </span>
+              <span style={{ color: "var(--text-faint)" }}>{authUser.username}</span>
+              {demoMode && <span style={{ color: "#333", fontSize: 9 }}>DEMO</span>}
+              <button
+                onClick={() => { authLogout(); setShowLogin(true); }}
+                style={{
+                  background: "transparent", border: "1px solid #1a2a3a",
+                  color: "#334455", fontFamily: "monospace", fontSize: 9,
+                  padding: "2px 6px", cursor: "pointer", letterSpacing: "0.05em",
+                }}
+              >
+                LOGOUT
+              </button>
+            </div>
+          )}
+          <div style={{
+            padding: "0 16px", borderLeft: "1px solid var(--border)",
+            display: "flex", alignItems: "center",
+            fontSize: 11, color: "var(--text-faint)",
+            fontWeight: "500", letterSpacing: "0.05em",
+          }}>
+            {utcTime} UTC
+          </div>
         </div>
       </div>
 
@@ -462,12 +499,14 @@ export default function App() {
           }}>
             <TabBtn active={rightTab === "control"}   onClick={() => setRightTab("control")}>CONTROL</TabBtn>
             <TabBtn active={rightTab === "telemetry"} onClick={() => setRightTab("telemetry")}>TELEMETRY</TabBtn>
+            <TabBtn active={rightTab === "scheduler"} onClick={() => setRightTab("scheduler")}>SCHED</TabBtn>
             <TabBtn active={rightTab === "alerts"}    onClick={() => setRightTab("alerts")} badge={unackedCount}>ALERTS</TabBtn>
           </div>
 
           <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
             {rightTab === "control"   && <ControlPanel send={send} snapshot={snapshot} selectedId={selectedId} />}
             {rightTab === "telemetry" && <TelemetryGraphs />}
+            {rightTab === "scheduler" && <SchedulerPanel />}
             {rightTab === "alerts"    && <AlertFeed />}
           </div>
         </div>

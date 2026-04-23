@@ -1,7 +1,6 @@
 """
 telescopes.py — REST endpoints สำหรับอ่าน telescope state
 """
-
 from fastapi import APIRouter
 from app.simulation.alma_sim import ANTENNA_ARRAY, _system_state, _injected_faults
 
