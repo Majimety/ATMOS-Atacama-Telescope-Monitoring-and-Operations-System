@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { useTelemetryStore } from "./store/telemetryStore";
 import { useAlertStore } from "./store/alertStore";
@@ -10,44 +10,165 @@ import ControlPanel from "./components/ControlPanel";
 
 const WS_URL = "ws://localhost:8000/ws/telemetry";
 
-// Improved Tab button
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 function TabBtn({ active, onClick, children, badge }) {
   return (
-    <button onClick={onClick} style={{
-      flex: 1,
-      background: active ? "#0d2030" : "transparent",
-      border: "none",
-      borderBottom: active ? "2px solid #00d4ff" : "2px solid transparent",
-      color: active ? "#00d4ff" : "#6688aa",
-      fontFamily: "monospace",
-      fontSize: 11,
-      padding: "10px 6px",
-      cursor: "pointer",
-      position: "relative",
-      transition: "all 0.2s ease",
-      fontWeight: active ? "600" : "400",
-    }}>
+    <button
+      onClick={onClick}
+      style={{
+        flex: 1,
+        background: active ? "#0a1c2c" : "transparent",
+        border: "none",
+        borderBottom: `2px solid ${active ? "var(--accent-cyan)" : "transparent"}`,
+        color: active ? "var(--accent-cyan)" : "var(--text-dim)",
+        fontFamily: "var(--mono)",
+        fontSize: 11,
+        padding: "9px 4px",
+        cursor: "pointer",
+        position: "relative",
+        transition: "color 0.15s, border-color 0.15s, background 0.15s",
+        fontWeight: active ? "600" : "400",
+        letterSpacing: "0.06em",
+      }}
+    >
       {children}
       {badge > 0 && (
         <span style={{
           position: "absolute",
-          top: 4,
-          right: 8,
-          background: "#ff4444",
+          top: 5,
+          right: 6,
+          background: "var(--accent-red)",
           color: "#fff",
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: "bold",
-          padding: "1px 5px",
-          borderRadius: 10,
-          minWidth: 16,
+          padding: "1px 4px",
+          borderRadius: 8,
+          minWidth: 14,
           textAlign: "center",
+          lineHeight: "14px",
         }}>
-          {badge}
+          {badge > 9 ? "9+" : badge}
         </span>
       )}
     </button>
   );
 }
+
+// Compact stat block used in header
+function Stat({ label, value, sub, color, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        padding: "0 14px",
+        borderRight: "1px solid var(--border)",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        gap: 1,
+        cursor: onClick ? "pointer" : "default",
+        minWidth: 0,
+        flexShrink: 1,
+      }}
+    >
+      <div style={{ fontSize: 9, color: "var(--text-faint)", letterSpacing: "0.1em", fontWeight: "600", whiteSpace: "nowrap" }}>
+        {label}
+      </div>
+      <div style={{ fontSize: 12, color: color || "var(--text-primary)", fontWeight: "600", whiteSpace: "nowrap", lineHeight: 1 }}>
+        {value}
+        {sub && <span style={{ fontSize: 10, color: "var(--text-dim)", fontWeight: "400", marginLeft: 4 }}>{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
+// Mini dish card in bottom bar
+function DishCard({ dish, selected, hasCrit, onSelect, alerts }) {
+  const bg = selected
+    ? "#0d2030"
+    : hasCrit ? "#1a0808"
+    : dish.online ? "#070e16"
+    : "#0d0808";
+
+  const borderColor = selected
+    ? "var(--accent-cyan)"
+    : hasCrit ? "var(--accent-red)"
+    : dish.online ? "#1a2a3a"
+    : "#2a1111";
+
+  // Rotate the little dish icon based on azimuth
+  const iconRotate = dish.online ? ((dish.az_deg || 0) % 180) - 90 : 0;
+
+  return (
+    <div
+      onClick={() => onSelect(dish.id === selected ? null : dish.id)}
+      title={`${dish.id} — ${dish.online ? `Tsys ${dish.tsys_k?.toFixed(0)}K · Az ${dish.az_deg?.toFixed(1)}° El ${dish.el_deg?.toFixed(1)}°` : "OFFLINE"}`}
+      style={{
+        flexShrink: 0,
+        width: 44,
+        height: 58,
+        background: bg,
+        border: `1px solid ${borderColor}`,
+        borderRadius: 3,
+        cursor: "pointer",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 2,
+        padding: "4px 2px",
+        transition: "transform 0.15s, box-shadow 0.15s",
+        animation: "fadein 0.2s ease",
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = "translateY(-2px)";
+        e.currentTarget.style.boxShadow = "0 3px 10px rgba(0,0,0,0.5)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
+        e.currentTarget.style.boxShadow = "none";
+      }}
+    >
+      {/* Mini dish icon — semicircle that rotates */}
+      <svg width="20" height="12" viewBox="0 0 20 12" style={{ transform: `rotate(${iconRotate}deg)`, transition: "transform 1s ease", flexShrink: 0 }}>
+        <path
+          d="M 0 12 A 10 12 0 0 1 20 12 Z"
+          fill={dish.online ? (hasCrit ? "#ff6644" : "#3a6688") : "#4a2222"}
+        />
+        <line x1="10" y1="12" x2="10" y2="0" stroke={dish.online ? "#5a8899" : "#3a2222"} strokeWidth="1" />
+      </svg>
+
+      {/* ID */}
+      <div style={{
+        fontSize: 8.5,
+        color: selected ? "var(--accent-cyan)" : dish.online ? "#7a99aa" : "#5a3333",
+        fontWeight: "600",
+        letterSpacing: "0.02em",
+        lineHeight: 1,
+        textAlign: "center",
+      }}>
+        {dish.id.replace("DA-", "A").replace("DV-", "V")}
+      </div>
+
+      {/* Tsys / status */}
+      <div style={{
+        fontSize: 8,
+        color: !dish.online
+          ? "#5a2222"
+          : dish.tsys_k > 100 ? "var(--accent-yellow)"
+          : "#2a5a44",
+        fontWeight: "500",
+        lineHeight: 1,
+      }}>
+        {dish.online ? `${dish.tsys_k?.toFixed(0)}K` : "OFF"}
+      </div>
+    </div>
+  );
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const setSnapshot  = useTelemetryStore((s) => s.setSnapshot);
@@ -56,65 +177,51 @@ export default function App() {
   const alerts       = useAlertStore((s) => s.alerts);
   const unackedCount = useAlertStore((s) => s.unackedCount);
 
-  const [selectedId,  setSelectedId]  = useState(null);
-  const [rightTab,    setRightTab]    = useState("control");
-  const [leftTab,     setLeftTab]     = useState("3d");
+  const [selectedId, setSelectedId] = useState(null);
+  const [rightTab,   setRightTab]   = useState("control");
 
   const handleMessage = useCallback((data) => {
     setSnapshot(data);
-    const newAlerts = detectAlerts(data);
-    newAlerts.forEach(pushAlert);
+    detectAlerts(data).forEach(pushAlert);
   }, [setSnapshot, pushAlert]);
 
   const { send } = useWebSocket(WS_URL, handleMessage);
 
+  // ── Loading screen ──────────────────────────────────────────────────────────
   if (!snapshot) {
     return (
       <div style={{
-        color: "#00ff88",
-        background: "#020509",
+        color: "var(--accent-green)",
+        background: "var(--bg-deep)",
         height: "100vh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        fontFamily: "monospace",
-        gap: 16,
+        fontFamily: "var(--mono)",
+        gap: 20,
       }}>
-        <div style={{ fontSize: 24, color: "#00d4ff", fontWeight: "bold", letterSpacing: "0.2em" }}>
+        <div style={{ fontSize: 28, color: "var(--accent-cyan)", fontWeight: "bold", letterSpacing: "0.3em" }}>
           ATMOS
         </div>
-        <div style={{ fontSize: 13, color: "#556677" }}>
-          Connecting to backend...
+        <div style={{ fontSize: 11, color: "var(--text-dim)", letterSpacing: "0.15em" }}>
+          CONNECTING TO BACKEND
         </div>
-        <div style={{
-          width: 200,
-          height: 3,
-          background: "#0a1a2a",
-          position: "relative",
-          overflow: "hidden",
-          borderRadius: 2,
-        }}>
+        <div style={{ width: 200, height: 2, background: "#0a1a2a", position: "relative", overflow: "hidden", borderRadius: 1 }}>
           <div style={{
             position: "absolute",
             height: "100%",
             width: "40%",
-            background: "linear-gradient(90deg, transparent, #00d4ff, transparent)",
+            background: "linear-gradient(90deg, transparent, var(--accent-cyan), transparent)",
             animation: "scan 1.5s infinite ease-in-out",
           }} />
         </div>
-        <style>{`
-          @keyframes scan {
-            from { left: -40% }
-            to { left: 100% }
-          }
-        `}</style>
       </div>
     );
   }
 
+  // ── Derived state ───────────────────────────────────────────────────────────
   const { alma, atmosphere, commanded_target, system, pointing_mode } = snapshot;
-  const selected = alma.dishes.find((d) => d.id === selectedId);
 
   const critCount = alerts.filter((a) => a.severity === "critical" && !a.acked).length;
   const warnCount = alerts.filter((a) => a.severity === "warning"  && !a.acked).length;
@@ -123,272 +230,242 @@ export default function App() {
   const windWarn = atmosphere.wind_ms >= 20;
 
   const pointingColor = {
-    slewing: "#ffaa00",
-    stow: "#ff8844",
-    tracking: "#00ff88",
-    idle: "#6688aa",
-  }[pointing_mode] || "#6688aa";
+    slewing:  "var(--accent-yellow)",
+    stow:     "#ff8844",
+    tracking: "var(--accent-green)",
+    idle:     "var(--text-dim)",
+  }[pointing_mode] || "var(--text-dim)";
 
+  const utcTime = new Date(snapshot.timestamp).toUTCString().slice(17, 25);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{
-      background: "#020509",
-      color: "#c0ccd8",
+      background: "var(--bg-deep)",
+      color: "var(--text-primary)",
       height: "100vh",
+      width: "100vw",
       display: "flex",
       flexDirection: "column",
-      fontFamily: "'Courier New', Courier, monospace",
+      fontFamily: "var(--mono)",
       overflow: "hidden",
     }}>
 
-      {/* ══ TOP BAR ══════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          TOP BAR — fixed height 44px, no overflow
+      ══════════════════════════════════════════════════════════════════════ */}
       <div style={{
         display: "flex",
-        alignItems: "center",
-        gap: 0,
-        borderBottom: "1px solid #0d1e2e",
-        background: "#040c14",
+        alignItems: "stretch",
+        borderBottom: "1px solid var(--border)",
+        background: "var(--bg-panel)",
         flexShrink: 0,
         height: 44,
+        overflow: "hidden",
       }}>
         {/* Logo */}
         <div style={{
-          padding: "0 20px",
-          borderRight: "1px solid #0d1e2e",
-          height: "100%",
+          padding: "0 18px",
+          borderRight: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
+          flexShrink: 0,
         }}>
-          <span style={{
-            color: "#00d4ff",
-            fontWeight: "bold",
-            fontSize: 14,
-            letterSpacing: "0.2em",
-          }}>
+          <span style={{ color: "var(--accent-cyan)", fontWeight: "bold", fontSize: 13, letterSpacing: "0.25em" }}>
             ATMOS
           </span>
         </div>
 
-        {/* Pointing mode */}
-        <div style={{
-          padding: "0 16px",
-          borderRight: "1px solid #0d1e2e",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}>
-          <span style={{
-            fontSize: 10,
-            color: "#445566",
-            letterSpacing: "0.1em",
-            fontWeight: "600",
-          }}>
-            MODE
-          </span>
-          <span style={{
-            fontSize: 12,
-            color: pointingColor,
-            fontWeight: "bold",
-          }}>
-            {(pointing_mode || "TRACKING").toUpperCase()}
-          </span>
-        </div>
+        {/* Mode */}
+        <Stat
+          label="MODE"
+          value={(pointing_mode || "TRACKING").toUpperCase()}
+          color={pointingColor}
+        />
 
         {/* Target */}
-        <div style={{
-          padding: "0 16px",
-          borderRight: "1px solid #0d1e2e",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          minWidth: 280,
-        }}>
-          <span style={{ fontSize: 10, color: "#445566", fontWeight: "600" }}>
-            TARGET
-          </span>
-          <span style={{ fontSize: 12, color: "#aabbcc", fontWeight: "500" }}>
-            {commanded_target.name}
-          </span>
-          <span style={{ fontSize: 11, color: "#6688aa" }}>
-            Az {commanded_target.az_deg?.toFixed(1)}° El {commanded_target.el_deg?.toFixed(1)}°
-          </span>
-        </div>
+        <Stat
+          label="TARGET"
+          value={commanded_target.name}
+          sub={`Az ${commanded_target.az_deg?.toFixed(1)}° El ${commanded_target.el_deg?.toFixed(1)}°`}
+          color="var(--text-primary)"
+        />
 
-        {/* Array status */}
-        <div style={{
-          padding: "0 16px",
-          borderRight: "1px solid #0d1e2e",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}>
-          <span style={{ fontSize: 10, color: "#445566", fontWeight: "600" }}>
-            ARRAY
-          </span>
-          <span style={{
-            fontSize: 13,
-            color: system?.fault_count > 0 ? "#ffaa00" : "#00ff88",
-            fontWeight: "bold",
-          }}>
-            {alma.online_count}
-          </span>
-          <span style={{ fontSize: 11, color: "#445566" }}>
-            / {alma.total_count}
-          </span>
-          <span style={{ fontSize: 11, color: "#6688aa" }}>
-            Tsys {alma.avg_tsys_k}K
-          </span>
-        </div>
+        {/* Array */}
+        <Stat
+          label="ARRAY"
+          value={`${alma.online_count} / ${alma.total_count}`}
+          sub={`Tsys ${alma.avg_tsys_k}K`}
+          color={system?.fault_count > 0 ? "var(--accent-yellow)" : "var(--accent-green)"}
+        />
 
         {/* Band */}
-        <div style={{
-          padding: "0 16px",
-          borderRight: "1px solid #0d1e2e",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}>
-          <span style={{ fontSize: 10, color: "#445566", fontWeight: "600" }}>
-            BAND
-          </span>
-          <span style={{ fontSize: 12, color: "#00ffcc", fontWeight: "500" }}>
-            B{system?.band} · {system?.freq_ghz} GHz
-          </span>
-        </div>
+        <Stat
+          label="BAND"
+          value={`B${system?.band}`}
+          sub={`${system?.freq_ghz} GHz`}
+          color="var(--accent-teal)"
+        />
 
-        {/* Atmosphere */}
-        <div style={{
-          padding: "0 16px",
-          borderRight: "1px solid #0d1e2e",
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-        }}>
-          <span style={{ fontSize: 10, color: "#445566", fontWeight: "600" }}>
-            ATM
-          </span>
-          <span style={{ fontSize: 11, color: "#aa77ff" }}>
-            PWV {atmosphere.pwv_mm}mm
-          </span>
-          <span style={{
-            fontSize: 11,
-            color: windCrit ? "#ff4444" : windWarn ? "#ffaa00" : "#6688aa",
-            fontWeight: windCrit || windWarn ? "bold" : "normal",
-          }}>
-            {atmosphere.wind_ms}m/s
-          </span>
-          <span style={{ fontSize: 11, color: "#6688aa" }}>
-            {atmosphere.temp_c}°C
-          </span>
-        </div>
+        {/* Atmosphere — hidden on small screens via flex shrink */}
+        <Stat
+          label="PWV"
+          value={`${atmosphere.pwv_mm} mm`}
+          color="var(--accent-purple)"
+        />
+
+        <Stat
+          label="WIND"
+          value={`${atmosphere.wind_ms} m/s`}
+          color={windCrit ? "var(--accent-red)" : windWarn ? "var(--accent-yellow)" : "var(--text-dim)"}
+        />
+
+        <Stat
+          label="TEMP"
+          value={`${atmosphere.temp_c}°C`}
+        />
 
         {/* Alert badges */}
-        <div style={{
-          padding: "0 12px",
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-        }}>
-          {critCount > 0 && (
-            <span onClick={() => setRightTab("alerts")} style={{
-              background: "#ff3333",
-              color: "#fff",
-              fontSize: 10,
-              fontWeight: "bold",
-              padding: "4px 10px",
-              borderRadius: 12,
-              cursor: "pointer",
-              animation: "alertpulse 1.2s ease-in-out infinite",
-            }}>
-              ⚠ {critCount} CRIT
-            </span>
-          )}
-          {warnCount > 0 && (
-            <span onClick={() => setRightTab("alerts")} style={{
-              background: "#cc8800",
-              color: "#fff",
-              fontSize: 10,
-              fontWeight: "bold",
-              padding: "4px 10px",
-              borderRadius: 12,
-              cursor: "pointer",
-            }}>
-              ▲ {warnCount}
-            </span>
-          )}
-        </div>
+        {(critCount > 0 || warnCount > 0) && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "0 12px",
+            flexShrink: 0,
+          }}>
+            {critCount > 0 && (
+              <button
+                onClick={() => setRightTab("alerts")}
+                style={{
+                  background: "var(--accent-red)",
+                  color: "#fff",
+                  fontSize: 10,
+                  fontWeight: "bold",
+                  padding: "4px 10px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  border: "none",
+                  fontFamily: "var(--mono)",
+                  animation: "alertpulse 1.4s ease-in-out infinite",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ⚠ {critCount} CRIT
+              </button>
+            )}
+            {warnCount > 0 && (
+              <button
+                onClick={() => setRightTab("alerts")}
+                style={{
+                  background: "#7a5500",
+                  color: "var(--accent-yellow)",
+                  fontSize: 10,
+                  fontWeight: "bold",
+                  padding: "4px 10px",
+                  borderRadius: 10,
+                  cursor: "pointer",
+                  border: "1px solid #aa7700",
+                  fontFamily: "var(--mono)",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ▲ {warnCount}
+              </button>
+            )}
+          </div>
+        )}
 
-        {/* UTC clock */}
+        {/* UTC — pushed to far right */}
         <div style={{
           marginLeft: "auto",
-          padding: "0 20px",
-          fontSize: 12,
-          color: "#445566",
-          borderLeft: "1px solid #0d1e2e",
-          height: "100%",
+          padding: "0 16px",
+          borderLeft: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
+          fontSize: 11,
+          color: "var(--text-faint)",
           fontWeight: "500",
+          flexShrink: 0,
+          letterSpacing: "0.05em",
         }}>
-          {new Date(snapshot.timestamp).toUTCString().slice(17, 25)} UTC
+          {utcTime} UTC
         </div>
       </div>
 
-      {/* ══ MAIN AREA ════════════════════════════════════════════════════════ */}
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      {/* ══════════════════════════════════════════════════════════════════════
+          MAIN — 3D viewport + right panel
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
 
-        {/* LEFT — 3D viewport */}
-        <div style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}>
+        {/* 3D Viewport */}
+        <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
           <Scene selectedId={selectedId} onSelect={setSelectedId} />
+
+          {/* Selected dish overlay */}
+          {selectedId && (() => {
+            const dish = alma.dishes.find((d) => d.id === selectedId);
+            if (!dish) return null;
+            return (
+              <div style={{
+                position: "absolute",
+                top: 12,
+                left: 12,
+                background: "rgba(4,12,20,0.92)",
+                border: "1px solid var(--border-mid)",
+                borderLeft: "3px solid var(--accent-teal)",
+                borderRadius: 4,
+                padding: "10px 14px",
+                fontFamily: "var(--mono)",
+                fontSize: 11,
+                minWidth: 160,
+                animation: "fadein 0.2s ease",
+                pointerEvents: "none",
+              }}>
+                <div style={{ color: "var(--accent-teal)", fontWeight: "bold", marginBottom: 6, fontSize: 12 }}>
+                  {dish.id}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 14px", color: "var(--text-dim)" }}>
+                  <span>Az</span><span style={{ color: "var(--text-primary)" }}>{dish.az_deg?.toFixed(2)}°</span>
+                  <span>El</span><span style={{ color: "var(--text-primary)" }}>{dish.el_deg?.toFixed(2)}°</span>
+                  <span>Tsys</span>
+                  <span style={{ color: dish.tsys_k > 100 ? "var(--accent-yellow)" : "var(--accent-green)" }}>
+                    {dish.tsys_k?.toFixed(1)} K
+                  </span>
+                  <span>Signal</span><span style={{ color: "var(--text-primary)" }}>{dish.signal_dbm?.toFixed(1)} dBm</span>
+                  <span>Status</span>
+                  <span style={{ color: dish.online ? "var(--accent-green)" : "var(--accent-red)" }}>
+                    {dish.online ? "ONLINE" : "OFFLINE"}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
-        {/* RIGHT — tabbed panel (increased width) */}
+        {/* Right panel */}
         <div style={{
-          width: 320,
-          borderLeft: "1px solid #0d1e2e",
+          width: 300,
+          borderLeft: "1px solid var(--border)",
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
-          background: "#07101a",
+          background: "var(--bg-card)",
+          flexShrink: 0,
         }}>
-
-          {/* Tab bar */}
+          {/* Tabs */}
           <div style={{
             display: "flex",
-            borderBottom: "1px solid #0d1e2e",
+            borderBottom: "1px solid var(--border)",
             flexShrink: 0,
+            background: "var(--bg-panel)",
           }}>
-            <TabBtn
-              active={rightTab === "control"}
-              onClick={() => setRightTab("control")}
-            >
-              CONTROL
-            </TabBtn>
-            <TabBtn
-              active={rightTab === "telemetry"}
-              onClick={() => setRightTab("telemetry")}
-            >
-              TELEMETRY
-            </TabBtn>
-            <TabBtn
-              active={rightTab === "alerts"}
-              onClick={() => setRightTab("alerts")}
-              badge={unackedCount}
-            >
-              ALERTS
-            </TabBtn>
+            <TabBtn active={rightTab === "control"}   onClick={() => setRightTab("control")}>CONTROL</TabBtn>
+            <TabBtn active={rightTab === "telemetry"} onClick={() => setRightTab("telemetry")}>TELEMETRY</TabBtn>
+            <TabBtn active={rightTab === "alerts"}    onClick={() => setRightTab("alerts")} badge={unackedCount}>ALERTS</TabBtn>
           </div>
 
-          <div style={{ flex: 1, overflow: "hidden" }}>
+          <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
             {rightTab === "control"   && <ControlPanel send={send} snapshot={snapshot} selectedId={selectedId} />}
             {rightTab === "telemetry" && <TelemetryGraphs />}
             {rightTab === "alerts"    && <AlertFeed />}
@@ -396,125 +473,53 @@ export default function App() {
         </div>
       </div>
 
-      {/* ══ BOTTOM — Dish status bar (improved) ════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          BOTTOM — dish strip, scrollable horizontally
+      ══════════════════════════════════════════════════════════════════════ */}
       <div style={{
-        height: 72,
-        borderTop: "1px solid #0d1e2e",
-        background: "#040c14",
-        overflowX: "auto",
-        overflowY: "hidden",
+        height: 70,
+        borderTop: "1px solid var(--border)",
+        background: "var(--bg-panel)",
         display: "flex",
         alignItems: "center",
-        gap: 4,
-        padding: "0 12px",
+        gap: 3,
+        padding: "0 10px",
         flexShrink: 0,
+        overflowX: "auto",
+        overflowY: "hidden",
       }}>
+        {/* Section label */}
+        <div style={{
+          flexShrink: 0,
+          width: 36,
+          height: 58,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 4,
+          marginRight: 4,
+        }}>
+          <div style={{ fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em", writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
+            ALMA
+          </div>
+          <div style={{ width: 1, flex: 1, background: "var(--border)" }} />
+        </div>
+
         {alma.dishes.map((dish) => {
           const hasCrit = alerts.some((a) => a.dishId === dish.id && a.severity === "critical" && !a.acked);
-          const isSelected = dish.id === selectedId;
-
           return (
-            <div
+            <DishCard
               key={dish.id}
-              onClick={() => setSelectedId(dish.id === selectedId ? null : dish.id)}
-              title={`${dish.id} — ${dish.online ? `Tsys ${dish.tsys_k}K · Az ${dish.az_deg}°` : "OFFLINE"}`}
-              style={{
-                flexShrink: 0,
-                width: 42,
-                height: 56,
-                background: isSelected
-                  ? "#0d2030"
-                  : hasCrit
-                  ? "#1a0808"
-                  : dish.online
-                  ? "#0a141e"
-                  : "#0f0808",
-                border: `1px solid ${
-                  isSelected
-                    ? "#00d4ff"
-                    : hasCrit
-                    ? "#ff3333"
-                    : dish.online
-                    ? "#1a2a3a"
-                    : "#331111"
-                }`,
-                borderRadius: 4,
-                cursor: "pointer",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 3,
-                padding: "5px 3px",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 4px 8px rgba(0,0,0,0.3)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "none";
-              }}
-            >
-              {/* Dish icon */}
-              <div style={{
-                width: 22,
-                height: 14,
-                borderRadius: "50% 50% 0 0",
-                background: dish.online
-                  ? hasCrit
-                    ? "#ff6644"
-                    : "#3a6688"
-                  : "#553333",
-                transform: `rotate(${(dish.az_deg % 90) - 45}deg)`,
-                transition: "transform 1s ease",
-              }} />
-              
-              {/* Dish ID */}
-              <div style={{
-                fontSize: 9,
-                color: isSelected
-                  ? "#00d4ff"
-                  : dish.online
-                  ? "#8899aa"
-                  : "#664444",
-                textAlign: "center",
-                lineHeight: 1.2,
-                fontWeight: "500",
-              }}>
-                {dish.id.replace("DA-", "A").replace("DV-", "V")}
-              </div>
-              
-              {/* Tsys or Status */}
-              {dish.online ? (
-                <div style={{
-                  fontSize: 9,
-                  color: dish.tsys_k > 100 ? "#ffaa00" : "#336655",
-                  fontWeight: "500",
-                }}>
-                  {dish.tsys_k?.toFixed(0)}K
-                </div>
-              ) : (
-                <div style={{
-                  fontSize: 8,
-                  color: "#664444",
-                  fontWeight: "500",
-                }}>
-                  OFF
-                </div>
-              )}
-            </div>
+              dish={dish}
+              selected={selectedId}
+              hasCrit={hasCrit}
+              onSelect={setSelectedId}
+              alerts={alerts}
+            />
           );
         })}
       </div>
-
-      <style>{`
-        @keyframes alertpulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.6; }
-        }
-      `}</style>
     </div>
   );
 }

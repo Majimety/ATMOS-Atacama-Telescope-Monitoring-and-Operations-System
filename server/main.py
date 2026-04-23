@@ -3,7 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.ws.telemetry import telemetry_endpoint
-from app.simulation.alma_sim import inject_fault, set_band, set_obs_mode
+from app.simulation.alma_sim import (
+    cmd_inject_fault,
+    cmd_set_band,
+    cmd_set_mode,
+)
 from app.simulation.pointing_sim import controller
 
 
@@ -57,19 +61,19 @@ def api_stow():
 
 @app.post("/api/band/{band}")
 def api_set_band(band: int):
-    set_band(band)
+    cmd_set_band(band)
     return {"ok": True, "band": band}
 
 
 @app.post("/api/mode/{mode}")
 def api_set_mode(mode: str):
-    set_obs_mode(mode)
+    cmd_set_mode(mode)
     return {"ok": True, "mode": mode}
 
 
 @app.post("/api/fault")
 def api_inject_fault(cmd: FaultCommand):
-    inject_fault(cmd.dish_id, cmd.offline)
+    cmd_inject_fault(cmd.dish_id, cmd.offline)
     return {"ok": True}
 
 

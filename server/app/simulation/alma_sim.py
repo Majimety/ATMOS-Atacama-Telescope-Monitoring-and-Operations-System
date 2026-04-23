@@ -1,309 +1,314 @@
+"""
+alma_sim.py — ALMA simulation engine ที่ใช้ข้อมูลจริง
+
+ข้อมูลจริงที่ใช้:
+  1. ตำแหน่ง pad จริงจาก ALMA C43 config (CASA/NRAO public data)
+  2. สภาพอากาศจริงจาก Open-Meteo API (ดึงทุก 5 นาที)
+
+Physical models:
+  3. Tsys = f(T_rx_spec, τ_band, airmass)  — radiometry equation จริง
+  4. τ_band = τ_scale × τ_225              — scaling จาก atmospheric model
+  5. PWV → τ_225                            — Danese & Partridge (1989)
+  6. PWV ← RH, T, P                        — Clausius-Clapeyron + hydrostatics
+  7. Slew rate 3°/s az / 1.5°/s el         — ALMA TRE spec จริง
+  8. Tracking error < 0.6 arcsec RMS       — ALMA pointing spec จริง
+"""
+
+import asyncio
 import math
 import random
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-
-ARM_COUNT = 3
-DISHES_PER_ARM = 20
-ARM_START_ANGLE_DEG = 90
-
-BAND_FREQ_GHZ = {
-    1: 43,
-    2: 67,
-    3: 100,
-    4: 144,
-    5: 183,
-    6: 230,
-    7: 345,
-    8: 397,
-    9: 650,
-    10: 870,
-}
-
-LARGE_TELESCOPES = [
-    {
-        "id": "apex",
-        "name": "APEX 12m",
-        "type": "single",
-        "x": -180.0,
-        "z": 80.0,
-        "altitude_m": 5107,
-        "diameter_m": 12,
-        "online": True,
-    },
-    {
-        "id": "iram",
-        "name": "IRAM 30m",
-        "type": "single",
-        "x": 220.0,
-        "z": -120.0,
-        "altitude_m": 2850,
-        "diameter_m": 30,
-        "online": True,
-    },
-    {
-        "id": "aste",
-        "name": "ASTE 10m",
-        "type": "single",
-        "x": 140.0,
-        "z": 250.0,
-        "altitude_m": 4860,
-        "diameter_m": 10,
-        "online": True,
-    },
-    {
-        "id": "nanten2",
-        "name": "NANTEN2 4m",
-        "type": "single",
-        "x": -350.0,
-        "z": 100.0,
-        "altitude_m": 4865,
-        "diameter_m": 4,
-        "online": True,
-    },
-    {
-        "id": "eht_alpha",
-        "name": "EHT Node α",
-        "type": "eht",
-        "x": -280.0,
-        "z": -200.0,
-        "altitude_m": 5000,
-        "diameter_m": 12,
-        "online": True,
-    },
-    {
-        "id": "eht_beta",
-        "name": "EHT Node β",
-        "type": "eht",
-        "x": 300.0,
-        "z": 180.0,
-        "altitude_m": 5000,
-        "diameter_m": 12,
-        "online": False,
-    },
-]
+from .alma_positions import ALMA_REAL_PADS, CHAJNANTOR_TELESCOPES
+from .weather_fetcher import fetch_chajnantor_weather, WeatherData
+from .physics_models import (
+    compute_tsys,
+    compute_signal_level_dbm,
+    DishPointing,
+    ALMA_RECEIVER_TEMP,
+)
 
 
-# ── Array layout ─────────────────────────────────────────────────────────────
+# ── Build antenna array from real pad positions ───────────────────────────────
 
 
-def _place_dishes_along_arm(arm_index: int) -> list[dict]:
-    angle_rad = math.radians(ARM_START_ANGLE_DEG + arm_index * 120)
-    dishes = []
-    for i in range(DISHES_PER_ARM):
-        # ระยะห่างเพิ่มแบบ non-linear เพื่อจำลอง baseline coverage จริง
-        radius = 20 + i * 9 + (i**1.4)
-        dishes.append(
+def _build_array_from_real_pads() -> list[dict]:
+    """
+    แปลง pad positions จาก ENU (m) เป็น format ที่ใช้ใน simulation
+    กำหนด antenna ว่า online/offline ตาม realistic fault rate
+    """
+    antennas = []
+    for i, (pad, east_m, north_m, diam_m, ant_type) in enumerate(ALMA_REAL_PADS):
+        # Realistic fault rate: ~3% ของ array offline ตลอดเวลา
+        # ใช้ hash เพื่อให้ fault pattern คงที่ (ไม่ random ทุก restart)
+        is_faulted = (hash(pad) % 100) < 3
+
+        antennas.append(
             {
-                "id": f"DA-{arm_index * DISHES_PER_ARM + i + 1:02d}",
-                "arm": arm_index,
-                "x": round(math.cos(angle_rad) * radius, 2),
-                "z": round(math.sin(angle_rad) * radius, 2),
-                "base_tsys_k": 55.0 + i * 1.2,
-                "online": not (arm_index == 0 and i == 4),  # DA-05 fault simulation
+                "id": pad,
+                "type": ant_type,
+                "east_m": east_m,  # ตำแหน่งจริงใน ENU
+                "north_m": north_m,  # ตำแหน่งจริงใน ENU
+                "x": east_m,  # alias สำหรับ 3D scene
+                "z": -north_m,  # Three.js ใช้ Z=-North
+                "diameter_m": diam_m,
+                "online": not is_faulted,
+                "faulted": is_faulted,
+                "ant_type": ant_type,  # DA, DV, PM, CM (ACA)
             }
         )
-    return dishes
+    return antennas
 
 
-def _place_center_dishes() -> list[dict]:
-    positions = [(5, 5), (-5, 8), (8, -4), (-7, -5), (3, -9), (-4, 3)]
-    return [
-        {
-            "id": f"DV-{idx + 1:02d}",
-            "arm": -1,
-            "x": float(x),
-            "z": float(z),
-            "base_tsys_k": 52.0,  # center dishes มี Tsys ดีกว่าเล็กน้อย
-            "online": True,
-        }
-        for idx, (x, z) in enumerate(positions)
-    ]
+ANTENNA_ARRAY = _build_array_from_real_pads()
+
+# สร้าง DishPointing object 1 ตัวต่อ 1 antenna — จัดการ slew/track จริง
+_pointing: dict[str, DishPointing] = {
+    ant["id"]: DishPointing(ant["id"], az0=0.0, el0=45.0) for ant in ANTENNA_ARRAY
+}
+
+# State ของระบบ
+_system_state = {
+    "band": 6,
+    "obs_mode": "interferometry",
+    "az_commanded": 183.7,  # Sgr A* default
+    "el_commanded": 52.4,
+    "target_name": "Sgr A*",
+    "target_ra": "17h 45m 40.04s",
+    "target_dec": "-29° 00′ 28.1″",
+    "pointing_mode": "tracking",
+    "last_update_t": time.time(),
+}
+
+# Faults ที่ inject จากนอก (เพิ่มได้จาก REST API)
+_injected_faults: set[str] = set()
+
+# Weather cache สำหรับ background refresh
+_last_weather: WeatherData | None = None
+_weather_task: asyncio.Task | None = None
 
 
-def build_alma_array() -> list[dict]:
-    dishes = []
-    for arm in range(ARM_COUNT):
-        dishes.extend(_place_dishes_along_arm(arm))
-    dishes.extend(_place_center_dishes())
-    return dishes
+# ── Public commands (เรียกจาก WebSocket handler) ──────────────────────────────
 
 
-# สร้าง array ครั้งเดียวตอน module load — ตำแหน่งไม่เปลี่ยน
-ALMA_ARRAY = build_alma_array()
+def cmd_slew(az_deg: float, el_deg: float, target_name: str = "Custom"):
+    """สั่งให้ทุก dish หมุนไปยัง az/el ที่กำหนด"""
+    _system_state["az_commanded"] = az_deg
+    _system_state["el_commanded"] = el_deg
+    _system_state["target_name"] = target_name
+    _system_state["pointing_mode"] = "slewing"
+
+    for p in _pointing.values():
+        p.command_slew(az_deg, el_deg)
 
 
-# ── System state ──────────────────────────────────────────────────────────────
+def cmd_stow():
+    """Stow position: Az 0°, El 15°"""
+    _system_state["pointing_mode"] = "stow"
+    for p in _pointing.values():
+        p.command_stow()
 
 
-@dataclass
-class SystemState:
+def cmd_set_band(band: int):
+    if 1 <= band <= 10:
+        _system_state["band"] = band
+
+
+def cmd_set_mode(mode: str):
+    _system_state["obs_mode"] = mode
+
+
+def cmd_inject_fault(dish_id: str):
+    """จำลอง hardware fault ใน dish ที่ระบุ"""
+    _injected_faults.add(dish_id)
+    for ant in ANTENNA_ARRAY:
+        if ant["id"] == dish_id:
+            ant["online"] = False
+
+
+def cmd_clear_fault(dish_id: str):
+    _injected_faults.discard(dish_id)
+    for ant in ANTENNA_ARRAY:
+        if ant["id"] == dish_id and not ant["faulted"]:
+            ant["online"] = True
+
+
+# ── Main snapshot builder ─────────────────────────────────────────────────────
+
+
+async def get_system_snapshot() -> dict:
     """
-    เก็บ mutable state ของระบบทั้งหมดไว้ใน object เดียว
-    แทนที่จะกระจายเป็น global variables ซึ่งแก้ไขยากและ test ยาก
+    สร้าง snapshot ของระบบทั้งหมด
+    เรียกทุก 1 วินาทีจาก WebSocket handler
     """
+    global _last_weather
 
-    active_band: int = 6
-    obs_mode: str = "interferometry"
-    fault_overrides: dict[str, bool] = field(default_factory=dict)
+    now = time.time()
+    dt = now - _system_state["last_update_t"]
+    _system_state["last_update_t"] = now
 
-    def set_band(self, band: int):
-        self.active_band = max(1, min(10, band))
+    # ── ดึงข้อมูลอากาศจริง (non-blocking, cached 5 min) ──────────────────────
+    try:
+        weather = await asyncio.wait_for(fetch_chajnantor_weather(), timeout=3.0)
+        _last_weather = weather
+    except asyncio.TimeoutError:
+        weather = _last_weather or _get_fallback_weather()
 
-    def set_obs_mode(self, mode: str):
-        self.obs_mode = mode
+    band = _system_state["band"]
+    tau = weather.tau_225ghz
 
-    def inject_fault(self, dish_id: str, offline: bool):
-        self.fault_overrides[dish_id] = offline
+    # ── อัพเดท pointing ของทุก dish ──────────────────────────────────────────
+    dish_states = []
+    online_count = 0
+    tsys_values = []
 
-    def dish_is_online(self, dish: dict) -> bool:
-        if dish["id"] in self.fault_overrides:
-            return not self.fault_overrides[dish["id"]]
-        return dish["online"]
+    for ant in ANTENNA_ARRAY:
+        pointing = _pointing[ant["id"]]
 
+        if not ant["online"]:
+            dish_states.append(
+                {
+                    "id": ant["id"],
+                    "type": ant["type"],
+                    "x": ant["x"],
+                    "z": ant["z"],
+                    "east_m": ant["east_m"],
+                    "north_m": ant["north_m"],
+                    "diameter_m": ant["diameter_m"],
+                    "online": False,
+                    "az_deg": 0.0,
+                    "el_deg": 15.0,
+                    "tsys_k": None,
+                    "signal_dbm": None,
+                    "pointing_mode": "stow",
+                }
+            )
+            continue
 
-# singleton — ใช้ร่วมกันทั้ง app
-system_state = SystemState()
+        # อัพเดท pointing ตาม slew physics
+        az, el = pointing.update(dt, now)
+        online_count += 1
 
+        # คำนวณ Tsys จาก physical model จริง
+        tsys = compute_tsys(
+            band=band,
+            tau_225ghz=tau,
+            elevation_deg=el,
+        )
+        # เพิ่ม noise เล็กน้อยต่าง dish ต่าง phase
+        phase = hash(ant["id"]) % 1000
+        tsys += math.sin(now * 0.003 + phase * 0.1) * 1.5 + random.gauss(0, 0.4)
+        tsys = round(max(20, tsys), 1)
+        tsys_values.append(tsys)
 
-# helper wrappers ให้ main.py และ telemetry.py เรียกได้เหมือนเดิม
-def set_band(band: int):
-    system_state.set_band(band)
+        signal = compute_signal_level_dbm(tsys, el, band)
 
+        dish_states.append(
+            {
+                "id": ant["id"],
+                "type": ant["type"],
+                "x": ant["x"],
+                "z": ant["z"],
+                "east_m": ant["east_m"],
+                "north_m": ant["north_m"],
+                "diameter_m": ant["diameter_m"],
+                "online": True,
+                "az_deg": az,
+                "el_deg": el,
+                "tsys_k": tsys,
+                "signal_dbm": signal,
+                "pointing_mode": pointing.pointing_mode,
+            }
+        )
 
-def set_obs_mode(mode: str):
-    system_state.set_obs_mode(mode)
+    # อัพเดท overall pointing_mode
+    modes = {_pointing[a["id"]].state for a in ANTENNA_ARRAY if a["online"]}
+    if "slewing" in modes:
+        _system_state["pointing_mode"] = "slewing"
+    elif "settling" in modes:
+        _system_state["pointing_mode"] = "settling"
+    else:
+        _system_state["pointing_mode"] = "tracking"
 
+    avg_tsys = round(sum(tsys_values) / len(tsys_values), 1) if tsys_values else 0.0
 
-def inject_fault(dish_id: str, offline: bool):
-    system_state.inject_fault(dish_id, offline)
-
-
-# ── Signal computation ────────────────────────────────────────────────────────
-
-
-def _compute_dish_pointing(
-    dish_id: str, az_commanded: float, el_commanded: float, t: float
-) -> tuple[float, float]:
-    # แต่ละ dish มี tracking error เฉพาะตัว ใช้ hash ของ id เป็น phase offset
-    phase = hash(dish_id) % 1000
-    az_error = math.sin(t * 0.1 + phase) * 0.05  # ~0.05° peak error
-    el_error = math.cos(t * 0.13 + phase) * 0.03
-    return round(az_commanded + az_error, 3), round(el_commanded + el_error, 3)
-
-
-def _compute_tsys(base_tsys_k: float, dish_id: str, t: float, band: int) -> float:
-    phase = hash(dish_id) % 1000
-    # Tsys สูงขึ้นตาม band เพราะความถี่สูงกว่า = atmosphere opacity มากกว่า
-    band_factor = 1.0 + (band - 1) * 0.15
-    drift = math.sin(t * 0.005 + phase * 0.1) * 5.0
-    noise = random.gauss(0, 0.8)
-    return round((base_tsys_k + drift + noise) * band_factor, 1)
-
-
-def _compute_signal_level_dbm(el_deg: float, band: int) -> float:
-    # signal อ่อนลงเมื่อ elevation ต่ำ (airmass สูง) และ band สูง
-    base = -12.0 + (el_deg - 45.0) * 0.05 - (band - 1) * 0.3
-    return round(base + random.gauss(0, 0.2), 2)
-
-
-# ── Per-dish sampling ─────────────────────────────────────────────────────────
-
-
-def sample_dish_state(
-    dish: dict, az_commanded: float, el_commanded: float, t: float
-) -> dict:
-    online = system_state.dish_is_online(dish)
-
-    if not online:
-        return {
-            "id": dish["id"],
-            "online": False,
-            "x": dish["x"],
-            "z": dish["z"],
-            "az_deg": 0.0,
-            "el_deg": 15.0,
-            "tsys_k": None,
-            "signal_dbm": None,
-            "fault": True,
-        }
-
-    az, el = _compute_dish_pointing(dish["id"], az_commanded, el_commanded, t)
-    tsys = _compute_tsys(dish["base_tsys_k"], dish["id"], t, system_state.active_band)
-
-    return {
-        "id": dish["id"],
-        "online": True,
-        "x": dish["x"],
-        "z": dish["z"],
-        "az_deg": az,
-        "el_deg": el,
-        "tsys_k": tsys,
-        "signal_dbm": _compute_signal_level_dbm(el, system_state.active_band),
-        "fault": False,
+    # ── Band frequency map ────────────────────────────────────────────────────
+    band_freq = {
+        1: 43,
+        2: 67,
+        3: 100,
+        4: 144,
+        5: 183,
+        6: 230,
+        7: 345,
+        8: 397,
+        9: 650,
+        10: 870,
     }
-
-
-def sample_atmosphere(t: float) -> dict:
-    pwv_mm = 0.42 + math.sin(t * 0.002) * 0.15 + random.gauss(0, 0.01)
-    wind_ms = 14.3 + math.sin(t * 0.007) * 3.5 + random.gauss(0, 0.3)
-    temp_c = -8.1 + math.sin(t * 0.001) * 2.0
-    humidity_pct = 3.2 + math.sin(t * 0.003) * 0.8
-    tau = 0.03 + pwv_mm * 0.005
-
-    return {
-        "pwv_mm": round(max(0.1, pwv_mm), 3),
-        "wind_ms": round(max(0.0, wind_ms), 1),
-        "temp_c": round(temp_c, 1),
-        "tau_225ghz": round(tau, 4),
-        "humidity_pct": round(max(0.0, humidity_pct), 1),
-        "seeing_arcsec": round(0.3 + tau * 8 + random.gauss(0, 0.02), 2),
-    }
-
-
-# ── Main snapshot ─────────────────────────────────────────────────────────────
-
-
-def get_system_snapshot(
-    az_commanded: float = 183.7, el_commanded: float = 52.4
-) -> dict:
-    t = time.time()
-
-    alma_states = [
-        sample_dish_state(dish, az_commanded, el_commanded, t) for dish in ALMA_ARRAY
-    ]
-
-    online_dishes = [d for d in alma_states if d["online"]]
-    avg_tsys = (
-        sum(d["tsys_k"] for d in online_dishes) / len(online_dishes)
-        if online_dishes
-        else 0
-    )
-    fault_count = sum(1 for d in alma_states if not d["online"])
 
     return {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "commanded_target": {
-            "name": "Sgr A*",
-            "az_deg": az_commanded,
-            "el_deg": el_commanded,
-            "ra": "17h 45m 40.04s",
-            "dec": "-29° 00′ 28.1″",
+            "name": _system_state["target_name"],
+            "az_deg": _system_state["az_commanded"],
+            "el_deg": _system_state["el_commanded"],
+            "ra": _system_state["target_ra"],
+            "dec": _system_state["target_dec"],
         },
+        "pointing_mode": _system_state["pointing_mode"],
         "system": {
-            "band": system_state.active_band,
-            "freq_ghz": BAND_FREQ_GHZ.get(system_state.active_band, 0),
-            "obs_mode": system_state.obs_mode,
-            "fault_count": fault_count,
+            "band": band,
+            "freq_ghz": band_freq[band],
+            "obs_mode": _system_state["obs_mode"],
+            "fault_count": len(ANTENNA_ARRAY) - online_count,
         },
         "alma": {
-            "dishes": alma_states,
-            "online_count": len(online_dishes),
-            "total_count": len(ALMA_ARRAY),
-            "avg_tsys_k": round(avg_tsys, 1),
+            "dishes": dish_states,
+            "online_count": online_count,
+            "total_count": len(ANTENNA_ARRAY),
+            "avg_tsys_k": avg_tsys,
         },
-        "large_telescopes": LARGE_TELESCOPES,
-        "atmosphere": sample_atmosphere(t),
+        # large_telescopes ยังคง format เดิมเพื่อ compatibility กับ Scene.jsx
+        "large_telescopes": [
+            {
+                **tel,
+                "x": tel["x_m"],
+                "z": -tel.get("y_m", 0),
+                "diameter_m": tel["diameter_m"],
+            }
+            for tel in CHAJNANTOR_TELESCOPES
+        ],
+        "atmosphere": {
+            # ข้อมูลจริงจาก API (หรือ simulation fallback)
+            "pwv_mm": weather.pwv_mm,
+            "tau_225ghz": weather.tau_225ghz,
+            "wind_ms": weather.wind_ms,
+            "wind_dir_deg": weather.wind_dir_deg,
+            "temp_c": weather.temperature_c,
+            "humidity_pct": weather.humidity_pct,
+            "pressure_hpa": weather.pressure_hpa,
+            "cloud_cover_pct": weather.cloud_cover_pct,
+            "seeing_arcsec": weather.seeing_arcsec,
+            "precipitation_mm": weather.precipitation_mm,
+            "weather_source": weather.source,  # "live" | "simulation"
+        },
     }
+
+
+def _get_fallback_weather() -> WeatherData:
+    """สำรองสุดท้าย ถ้า fetch ไม่ได้เลย"""
+    from weather_fetcher import WeatherData, derive_pwv_from_meteo, derive_tau_from_pwv
+
+    pwv = derive_pwv_from_meteo(-8.0, 3.5, 542.0)
+    return WeatherData(
+        temperature_c=-8.0,
+        humidity_pct=3.5,
+        wind_ms=14.0,
+        wind_dir_deg=270.0,
+        pressure_hpa=542.0,
+        pwv_mm=pwv,
+        tau_225ghz=derive_tau_from_pwv(pwv),
+        seeing_arcsec=0.6,
+        source="simulation",
+    )
