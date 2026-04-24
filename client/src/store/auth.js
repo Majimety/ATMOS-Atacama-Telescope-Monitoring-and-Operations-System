@@ -4,18 +4,46 @@
  * Supports two modes:
  *   1. Real mode  — calls FastAPI /auth/token endpoint (JWT)
  *   2. Demo mode  — validates against hardcoded demo accounts locally
- *                   (used when backend auth isn't fully wired up yet)
  *
  * Demo accounts (match server/auth.py _DEMO_USERS):
  *   viewer   / viewer123   → read-only
  *   operator / operator123 → control
  *   admin    / admin123    → full access
+ *
+ * Auto-refresh:
+ *   - refresh ทำงานล่วงหน้า 2 นาทีก่อน token หมดอายุ
+ *   - ถ้า refresh ล้มเหลว → logout อัตโนมัติ
+ *   - onRehydrateStorage → ตั้ง timer ใหม่เมื่อ reload หน้า
  */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+
+// refresh ล่วงหน้า 2 นาทีก่อน token หมดอายุ
+const REFRESH_BEFORE_EXPIRY_MS = 2 * 60 * 1000;
+
+// ── Internal refresh timer (module-level — ไม่ใส่ใน Zustand state) ──────────
+let _refreshTimer = null;
+
+function _clearTimer() {
+  if (_refreshTimer) {
+    clearTimeout(_refreshTimer);
+    _refreshTimer = null;
+  }
+}
+
+function _scheduleRefresh(expiresAt, refreshFn) {
+  _clearTimer();
+  const delay = expiresAt - Date.now() - REFRESH_BEFORE_EXPIRY_MS;
+  if (delay <= 0) {
+    // token ใกล้หมดหรือหมดแล้ว — refresh ทันที
+    refreshFn();
+    return;
+  }
+  _refreshTimer = setTimeout(refreshFn, delay);
+}
 
 // ── Role hierarchy ─────────────────────────────────────────────────────────
 export const ROLES = ["viewer", "operator", "engineer", "admin"];
@@ -27,13 +55,12 @@ export function hasRole(userRole, minimumRole) {
 
 // ── Demo accounts ──────────────────────────────────────────────────────────
 const DEMO_USERS = {
-  viewer:   { username: "viewer",   role: "viewer",   full_name: "Read-Only User",    password: "viewer123" },
-  operator: { username: "operator", role: "operator", full_name: "Observatory Operator", password: "operator123" },
-  admin:    { username: "admin",    role: "admin",    full_name: "System Administrator", password: "admin123" },
+  viewer:   { username: "viewer",   role: "viewer",   full_name: "Read-Only User",       password: "viewer123" },
+  operator: { username: "operator", role: "operator", full_name: "Observatory Operator",  password: "operator123" },
+  admin:    { username: "admin",    role: "admin",    full_name: "System Administrator",  password: "admin123" },
 };
 
 function makeDemoToken(username) {
-  // Not a real JWT — just a base64 payload for demo purposes
   const payload = { sub: username, role: DEMO_USERS[username]?.role, demo: true };
   return "demo." + btoa(JSON.stringify(payload));
 }
@@ -71,23 +98,26 @@ export const useAuthStore = create(
             });
             const me = meRes.ok ? await meRes.json() : { username, role: "viewer" };
 
+            const expiresAt = Date.now() + (data.expires_in ?? 3600) * 1000;
             set({
               accessToken:  data.access_token,
               refreshToken: data.refresh_token ?? null,
-              expiresAt:    Date.now() + (data.expires_in ?? 3600) * 1000,
+              expiresAt,
               user:         me,
               loading:      false,
               error:        null,
               demoMode:     false,
             });
+
+            // เริ่ม auto-refresh timer
+            _scheduleRefresh(expiresAt, () => get().refresh());
             return true;
           }
-          // Backend returned error (wrong password etc)
+
           const err = await res.json().catch(() => ({}));
           throw new Error(err.detail ?? `HTTP ${res.status}`);
 
         } catch (err) {
-          // 2. If backend unreachable → fall through to demo mode
           const isNetworkError = err.name === "TypeError" || err.name === "AbortError";
           if (!isNetworkError) {
             set({ loading: false, error: err.message });
@@ -95,19 +125,21 @@ export const useAuthStore = create(
           }
         }
 
-        // 3. Demo mode — validate locally
+        // 2. Demo mode — validate locally
         const demo = DEMO_USERS[username];
         if (demo && demo.password === password) {
           const { password: _, ...safeUser } = demo;
+          const expiresAt = Date.now() + 8 * 3600 * 1000;
           set({
-            user:        safeUser,
-            accessToken: makeDemoToken(username),
+            user:         safeUser,
+            accessToken:  makeDemoToken(username),
             refreshToken: null,
-            expiresAt:   Date.now() + 8 * 3600 * 1000,
-            loading:     false,
-            error:       null,
-            demoMode:    true,
+            expiresAt,
+            loading:      false,
+            error:        null,
+            demoMode:     true,
           });
+          // Demo mode ไม่ต้อง refresh — token เป็น fake และ expiresAt ยาว 8 ชม.
           return true;
         }
 
@@ -115,13 +147,52 @@ export const useAuthStore = create(
         return false;
       },
 
-      // ── Logout ───────────────────────────────────────────────────────────
-      logout: () => set({
-        user: null, accessToken: null, refreshToken: null,
-        expiresAt: null, error: null, demoMode: false,
-      }),
+      // ── Token refresh ─────────────────────────────────────────────────────
+      refresh: async () => {
+        const { refreshToken, demoMode, logout } = get();
 
-      // ── Token check ──────────────────────────────────────────────────────
+        // Demo mode ไม่มี refresh token จริง
+        if (demoMode || !refreshToken) return false;
+
+        try {
+          const res = await fetch(
+            `${API}/auth/refresh?refresh_tok=${encodeURIComponent(refreshToken)}`,
+            { method: "POST", signal: AbortSignal.timeout(5000) },
+          );
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+          const data = await res.json();
+          const expiresAt = Date.now() + (data.expires_in ?? 3600) * 1000;
+
+          set({
+            accessToken:  data.access_token,
+            refreshToken: data.refresh_token ?? refreshToken,
+            expiresAt,
+          });
+
+          // ตั้ง timer รอบถัดไป
+          _scheduleRefresh(expiresAt, () => get().refresh());
+          return true;
+
+        } catch (err) {
+          // refresh ล้มเหลว → logout บังคับ
+          console.warn("[ATMOS Auth] Token refresh failed — logging out:", err.message);
+          logout();
+          return false;
+        }
+      },
+
+      // ── Logout ───────────────────────────────────────────────────────────
+      logout: () => {
+        _clearTimer();
+        set({
+          user: null, accessToken: null, refreshToken: null,
+          expiresAt: null, error: null, demoMode: false,
+        });
+      },
+
+      // ── Token checks ─────────────────────────────────────────────────────
       isExpired: () => {
         const { expiresAt } = get();
         return expiresAt ? Date.now() > expiresAt : true;
@@ -132,8 +203,8 @@ export const useAuthStore = create(
         return !!user && (expiresAt ? Date.now() < expiresAt : true);
       },
 
-      // ── WS URL helper — ใส่ token เป็น query param ────────────────────────
-      // demo token ไม่ส่งไป backend เพราะ backend จะ reject
+      // ── WS URL helper ─────────────────────────────────────────────────────
+      // demo token ไม่ส่งไป backend — backend จะ reject
       wsUrl: (path = "/ws/telemetry") => {
         const WS_BASE = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000";
         const { accessToken, demoMode } = get();
@@ -144,12 +215,20 @@ export const useAuthStore = create(
       },
     }),
     {
-      name:    "atmos-auth",
+      name: "atmos-auth",
       partialize: (s) => ({
         user: s.user, accessToken: s.accessToken,
         refreshToken: s.refreshToken, expiresAt: s.expiresAt,
         demoMode: s.demoMode,
       }),
+      // ── Rehydrate: ตั้ง timer ใหม่เมื่อ reload หน้า ────────────────────
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const { expiresAt, demoMode, refreshToken, isAuthenticated } = state;
+        if (demoMode || !refreshToken || !expiresAt) return;
+        if (!isAuthenticated()) return;
+        _scheduleRefresh(expiresAt, () => useAuthStore.getState().refresh());
+      },
     }
   )
 );
