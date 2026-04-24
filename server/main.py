@@ -1,7 +1,9 @@
 """
 main.py — ATMOS FastAPI Application
 """
-from fastapi import FastAPI, WebSocket
+import os
+
+from fastapi import FastAPI, WebSocket, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -9,20 +11,30 @@ from app.ws.telemetry import telemetry_endpoint, pool
 from app.scheduler import scheduler, ObservationJob, JobPriority
 from app.simulation.alma_sim import cmd_inject_fault, cmd_set_band, cmd_set_mode
 from app.simulation.pointing_sim import controller
+from app.api import atmosphere, telescopes, control as control_api
 from influx_writer import influx_writer
-from auth import router as auth_router
+from auth import router as auth_router, ws_authenticate, Role
 
 app = FastAPI(title="ATMOS API", version="0.3.0")
 
+# ── CORS — อ่านจาก env, fallback dev origins ─────────────────────────────────
+_raw_origins = os.getenv(
+    "ATMOS_CORS_ORIGINS", "http://localhost:5173,http://localhost:80"
+)
+CORS_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:80"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── Auth routes ───────────────────────────────────────────────────────────────
+# ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(auth_router)
+app.include_router(control_api.router)
+app.include_router(atmosphere.router)
+app.include_router(telescopes.router)
 
 
 # ── Health / status ───────────────────────────────────────────────────────────
@@ -40,6 +52,7 @@ def health():
         "pointing": {"az": az, "el": el, "mode": mode},
         "connections": pool.count,
         "influx": influx_writer.status(),
+        "cors_origins": CORS_ORIGINS,
         "scheduler": {
             "queued": scheduler.get_state()["stats"]["queued"],
             "active": scheduler.get_state()["active"] is not None,
@@ -47,7 +60,8 @@ def health():
     }
 
 
-# ── REST control ──────────────────────────────────────────────────────────────
+# ── REST control (legacy inline — delegate to control_api) ────────────────────
+# Kept for backward-compatibility; control_api.router handles /api/control/*
 
 class SlewCommand(BaseModel):
     az: float
@@ -146,8 +160,20 @@ def influx_status():
     return influx_writer.status()
 
 
-# ── WebSocket ─────────────────────────────────────────────────────────────────
+# ── WebSocket — ต้องผ่าน auth (token query param) ─────────────────────────────
 
 @app.websocket("/ws/telemetry")
-async def ws_telemetry(ws: WebSocket):
+async def ws_telemetry(
+    ws: WebSocket,
+    token: str = Query(default=""),
+):
+    """
+    WebSocket telemetry stream.
+    ถ้า token ว่าง → รับ connection ในฐานะ viewer (demo/dev mode)
+    ถ้า token ไม่ valid → FastAPI ส่ง close frame 4403 กลับอัตโนมัติ
+    """
+    if token:
+        await ws_authenticate(token, Role.VIEWER)   # raise WebSocketException(4403) ถ้า invalid
+
     await telemetry_endpoint(ws)
+

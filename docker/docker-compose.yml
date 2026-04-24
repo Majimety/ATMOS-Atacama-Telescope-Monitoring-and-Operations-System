@@ -79,7 +79,7 @@ services:
       INFLUX_ORG: ${INFLUX_ORG:-atmos}
       INFLUX_BUCKET: ${INFLUX_BUCKET:-telemetry}
       REDIS_URL: redis://redis:6379
-      CORS_ORIGINS: "https://${DOMAIN},https://app.${DOMAIN}"
+      ATMOS_CORS_ORIGINS: "https://${DOMAIN},https://app.${DOMAIN}"
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       influxdb:

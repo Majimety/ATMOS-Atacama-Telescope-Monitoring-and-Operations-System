@@ -20,7 +20,7 @@ typing_extensions==4.15.0
 urllib3==2.6.3
 uvicorn==0.44.0
 websockets==16.0
-python-jose[cryptography]
-passlib[bcrypt]
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
-python-multipart
+python-multipart==0.0.26

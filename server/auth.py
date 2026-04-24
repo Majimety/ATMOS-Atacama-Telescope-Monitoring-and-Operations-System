@@ -27,6 +27,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.websockets import WebSocketDisconnect
+from fastapi.exceptions import WebSocketException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -255,12 +257,13 @@ def require_permission(permission: str):
 # ─── WebSocket auth helper ──────────────────────────────────────────────────
 async def ws_authenticate(token: str, minimum_role: Role = Role.VIEWER) -> User:
     """
-    Use in WebSocket endpoints — FastAPI Depends() doesn't work with WS.
+    Use in WebSocket endpoints — FastAPI Depends() ไม่รองรับ WS โดยตรง
 
     Usage in main.py:
       @app.websocket("/ws/telemetry")
-      async def telemetry_ws(ws: WebSocket, token: str = Query(...)):
-          user = await ws_authenticate(token, Role.VIEWER)
+      async def telemetry_ws(ws: WebSocket, token: str = Query(default="")):
+          if token:
+              user = await ws_authenticate(token, Role.VIEWER)
           await ws.accept()
           ...
     """
@@ -276,7 +279,8 @@ async def ws_authenticate(token: str, minimum_role: Role = Role.VIEWER) -> User:
             raise ValueError("insufficient role")
         return user
     except (JWTError, ValueError) as e:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+        # raise WebSocketException ให้ FastAPI ส่ง close frame 4403 กลับ
+        raise WebSocketException(code=4403, reason=str(e))
 
 
 # ─── Routes ─────────────────────────────────────────────────────────────────

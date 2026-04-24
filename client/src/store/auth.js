@@ -131,6 +131,17 @@ export const useAuthStore = create(
         const { user, expiresAt } = get();
         return !!user && (expiresAt ? Date.now() < expiresAt : true);
       },
+
+      // ── WS URL helper — ใส่ token เป็น query param ────────────────────────
+      // demo token ไม่ส่งไป backend เพราะ backend จะ reject
+      wsUrl: (path = "/ws/telemetry") => {
+        const WS_BASE = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000";
+        const { accessToken, demoMode } = get();
+        if (accessToken && !demoMode) {
+          return `${WS_BASE}${path}?token=${encodeURIComponent(accessToken)}`;
+        }
+        return `${WS_BASE}${path}`;
+      },
     }),
     {
       name:    "atmos-auth",

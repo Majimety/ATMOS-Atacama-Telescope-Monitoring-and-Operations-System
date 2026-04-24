@@ -11,9 +11,7 @@ import ControlPanel from "./components/ControlPanel";
 import SchedulerPanel from "./components/SchedulerPanel";
 import LoginPage from "./pages/LoginPage";
 
-const WS_URL = "ws://localhost:8000/ws/telemetry";
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────────────────// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function TabBtn({ active, onClick, children, badge }) {
   return (
@@ -183,19 +181,22 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [rightTab,   setRightTab]   = useState("control");
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
-  const authUser   = useAuthStore((s) => s.user);
-  const authLogout = useAuthStore((s) => s.logout);
-  const demoMode   = useAuthStore((s) => s.demoMode);
-  const isAuth     = useAuthStore((s) => s.isAuthenticated);
+  const authUser    = useAuthStore((s) => s.user);
+  const authLogout  = useAuthStore((s) => s.logout);
+  const demoMode    = useAuthStore((s) => s.demoMode);
+  const isAuth      = useAuthStore((s) => s.isAuthenticated);
+  const getWsUrl    = useAuthStore((s) => s.wsUrl);
   const [showLogin, setShowLogin] = useState(!isAuth());
+
+  // wsUrl() อ่าน token จาก store โดยตรง และ guard demo token ออกอัตโนมัติ
+  const wsUrl = getWsUrl("/ws/telemetry");
 
   const handleMessage = useCallback((data) => {
     setSnapshot(data);
     detectAlerts(data).forEach(pushAlert);
   }, [setSnapshot, pushAlert]);
 
-  const { send } = useWebSocket(WS_URL, handleMessage);
+  const { send } = useWebSocket(wsUrl, handleMessage);
 
   // ── Loading screen ──────────────────────────────────────────────────────────
   if (!snapshot) {

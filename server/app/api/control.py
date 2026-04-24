@@ -32,12 +32,14 @@ class FaultCommand(BaseModel):
 @router.post("/slew")
 def slew(cmd: SlewCommand):
     cmd_slew(cmd.az, cmd.el, cmd.target_name)
+    controller.command_slew(cmd.az, cmd.el)   # sync pointing_sim ด้วย
     return {"ok": True, "az": cmd.az, "el": cmd.el}
 
 
 @router.post("/stow")
 def stow():
     cmd_stow()
+    controller.command_stow()                  # sync pointing_sim ด้วย
     return {"ok": True, "mode": "stow"}
 
 

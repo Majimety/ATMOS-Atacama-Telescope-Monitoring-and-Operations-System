@@ -119,12 +119,18 @@ def cmd_set_mode(mode: str):
     _system_state["obs_mode"] = mode
 
 
-def cmd_inject_fault(dish_id: str):
-    """จำลอง hardware fault ใน dish ที่ระบุ"""
-    _injected_faults.add(dish_id)
-    for ant in ANTENNA_ARRAY:
-        if ant["id"] == dish_id:
-            ant["online"] = False
+def cmd_inject_fault(dish_id: str, offline: bool = True):
+    """จำลอง hardware fault ใน dish ที่ระบุ
+    offline=True  → ทำให้ dish ออฟไลน์
+    offline=False → clear fault (เทียบเท่า cmd_clear_fault)
+    """
+    if offline:
+        _injected_faults.add(dish_id)
+        for ant in ANTENNA_ARRAY:
+            if ant["id"] == dish_id:
+                ant["online"] = False
+    else:
+        cmd_clear_fault(dish_id)
 
 
 def cmd_clear_fault(dish_id: str):

@@ -12,6 +12,7 @@
  */
 
 import { useMemo, useRef, useEffect, useState, useCallback } from "react";
+import { useTelemetryStore } from "../store/telemetryStore";
 
 // ─── ALMA Y-array positions (ENU metres, relative to array centre) ─────────
 // Real configuration from ALMA Cycle 10 docs (simplified to 30 representative baselines)
@@ -75,15 +76,35 @@ function enuToUV(E1, N1, U1, E2, N2, U2, hourAngle, declinationDeg) {
 
 // ─── Component ─────────────────────────────────────────────────────────────
 export default function UVCoveragePlot({
-  // Accept dishPositions from ATMOS Zustand store, or use default ALMA config
-  dishPositions = null,
-  // Active dish IDs (from telemetry — offline dishes excluded)
-  activeDishIds = null,
   width = 600,
   height = 600,
 }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
+
+  // ── ดึงข้อมูลจาก Zustand store (live telemetry) ────────────────────────
+  const snapshot = useTelemetryStore((s) => s.snapshot);
+
+  // แปลง dishes จาก snapshot → ENU positions (E, N, U)
+  // ถ้ายังไม่มี snapshot ใช้ fallback generated positions
+  const dishPositions = useMemo(() => {
+    const dishes = snapshot?.alma?.dishes;
+    if (dishes && dishes.length > 0) {
+      return dishes.map((d) => ({
+        id: d.id,
+        E: d.east_m ?? d.x ?? 0,
+        N: d.north_m ?? -(d.z ?? 0), // Three.js z = -north
+        U: 0,
+      }));
+    }
+    return null;
+  }, [snapshot]);
+
+  const activeDishIds = useMemo(() => {
+    const dishes = snapshot?.alma?.dishes;
+    if (!dishes) return null;
+    return dishes.filter((d) => d.online).map((d) => d.id);
+  }, [snapshot]);
 
   const [targetDec, setTargetDec] = useState(-23.0); // Galactic centre default
   const [hourAngleRange, setHourAngleRange] = useState(4); // ±hours tracked
