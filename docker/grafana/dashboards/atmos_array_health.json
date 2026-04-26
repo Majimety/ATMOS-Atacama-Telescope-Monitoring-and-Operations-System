@@ -1,0 +1,502 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_INFLUXDB_ATMOS",
+      "label": "InfluxDB-ATMOS",
+      "description": "ATMOS InfluxDB Flux datasource",
+      "type": "datasource",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "11.0.0" },
+    { "type": "datasource", "id": "influxdb", "name": "InfluxDB", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" },
+    { "type": "panel", "id": "piechart", "name": "Pie chart", "version": "" },
+    { "type": "panel", "id": "bargauge", "name": "Bar gauge", "version": "" }
+  ],
+  "annotations": { "list": [] },
+  "description": "ATMOS — Full array health overview: online dish count, fault history, observation band distribution, and scheduler status over time.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [
+    { "title": "Tsys Trends", "url": "/d/atmos-tsys-v1", "type": "link", "icon": "external link" },
+    { "title": "PWV History", "url": "/d/atmos-pwv-v1", "type": "link", "icon": "external link" }
+  ],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Array Status — Now",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Number of dishes currently online. ALMA full array = 66 dishes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "green", "value": 50 }
+            ]
+          },
+          "unit": "short",
+          "min": 0,
+          "max": 66,
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
+      "id": 2,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "title": "Online dishes",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"online_count\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Percentage of array currently online.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 80 }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "title": "Array availability",
+      "type": "gauge",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"online_count\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: r._value / 66.0 * 100.0 }))",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Number of dishes currently offline (faulted or stowed).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 16 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 1 },
+      "id": 4,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "title": "Offline dishes",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"online_count\")\n  |> last()\n  |> map(fn: (r) => ({ r with _value: 66 - r._value }))",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Current observation band. Band 3 = 84-116 GHz, 6 = 211-275 GHz, 7 = 275-373 GHz, 9 = 600-720 GHz, 10 = 787-950 GHz.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "light-blue" },
+          "unit": "short",
+          "mappings": [
+            { "type": "value", "options": { "3":  { "text": "Band 3 (3mm)" },  "6": { "text": "Band 6 (1mm)" },
+                                            "7":  { "text": "Band 7 (870μm)" }, "9": { "text": "Band 9 (450μm)" },
+                                            "10": { "text": "Band 10 (350μm)" } } }
+          ]
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "id": 5,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "title": "Active band",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> last()\n  |> keep(columns: [\"band\", \"_value\"])\n  |> group()\n  |> first()\n  |> keep(columns: [\"band\"])\n  |> map(fn: (r) => ({ _value: int(v: r.band) }))",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Current observation mode.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "light-green" },
+          "unit": "string",
+          "mappings": [
+            { "type": "value", "options": {
+                "interferometry": { "text": "Interferometry", "color": "green" },
+                "single_dish":    { "text": "Single dish",    "color": "yellow" },
+                "maintenance":    { "text": "Maintenance",    "color": "orange" },
+                "stow":           { "text": "Stowed",         "color": "red" }
+            }}
+          ]
+        }
+      },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "id": 6,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "title": "Observation mode",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"array_summary\")\n  |> last()\n  |> keep(columns: [\"obs_mode\"])\n  |> map(fn: (r) => ({ _value: r.obs_mode }))",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 10,
+      "title": "Array Health — History",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Online dish count over time. Drops indicate faults, maintenance windows, or weather stows.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 20,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "unit": "short",
+          "min": 0,
+          "max": 66,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "red", "value": 30 },
+              { "color": "yellow", "value": 50 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 9, "w": 14, "x": 0, "y": 7 },
+      "id": 11,
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "title": "Online dish count over time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"online_count\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"online_count\")",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Array availability (%) over time. Horizontal line at 80% (operations threshold).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "lineWidth": 1.5,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line+area" }
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "rgba(255,80,0,0.1)", "value": 60 },
+              { "color": "transparent", "value": 80 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 9, "w": 10, "x": 14, "y": 7 },
+      "id": 12,
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "title": "Array availability % over time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"online_count\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> map(fn: (r) => ({ r with _value: r._value / 66.0 * 100.0 }))\n  |> yield(name: \"availability_pct\")",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "id": 20,
+      "title": "Per-Dish Breakdown",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Uptime percentage per dish over selected time range. Dishes below 80% need investigation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "green", "value": 85 }
+            ]
+          },
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 17 },
+      "id": 21,
+      "options": {
+        "reduceOptions": { "calcs": ["mean"] },
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color"
+      },
+      "title": "Per-dish uptime % (selected range)",
+      "type": "bargauge",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "import \"math\"\n\nonline = from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> group(columns: [\"dish_id\"])\n  |> count()\n  |> rename(columns: {_value: \"online_frames\"})\n\ntotal = from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"online_count\")\n  |> count()\n  |> findRecord(fn: (key) => true, idx: 0)\n\nonline\n  |> map(fn: (r) => ({ r with _value: float(v: r.online_frames) / float(v: total._value) * 100.0 }))\n  |> group()\n  |> sort(columns: [\"_value\"])",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Distribution of observation time across bands over the selected period.",
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" }
+      },
+      "gridPos": { "h": 10, "w": 6, "x": 12, "y": 17 },
+      "id": 22,
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["name", "percent"],
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Observation time by band",
+      "type": "piechart",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> group(columns: [\"band\"])\n  |> count()\n  |> map(fn: (r) => ({ r with _value: r._value, band: \"Band \" + r.band }))",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Distribution of observation time by antenna type (DA, DV, CM, PM).",
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" }
+      },
+      "gridPos": { "h": 10, "w": 6, "x": 18, "y": 17 },
+      "id": 23,
+      "options": {
+        "pieType": "pie",
+        "displayLabels": ["name", "percent"],
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "tooltip": { "mode": "multi" }
+      },
+      "title": "Online time by antenna type",
+      "type": "piechart",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> group(columns: [\"ant_type\"])\n  |> count()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 27 },
+      "id": 30,
+      "title": "Scheduler Activity",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Total online dish-hours available over the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "unit": "h",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 28 },
+      "id": 31,
+      "options": {
+        "reduceOptions": { "calcs": ["sum"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "title": "Total dish-seconds online",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"online_count\")\n  |> map(fn: (r) => ({ r with _value: float(v: r._value) / 3600.0 }))\n  |> sum()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Dishes with the highest mean Tsys over the selected period — candidates for maintenance.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "kelvin",
+          "decimals": 1,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 130 }
+            ]
+          },
+          "custom": { "displayMode": "color-background" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "dish_id" }, "properties": [{ "id": "custom.width", "value": 90 }, { "id": "custom.displayMode", "value": "auto" }] }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 18, "x": 6, "y": 28 },
+      "id": 32,
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Mean Tsys", "desc": true }]
+      },
+      "title": "Top dishes by mean Tsys (maintenance candidates)",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> group(columns: [\"dish_id\", \"ant_type\"])\n  |> mean()\n  |> group()\n  |> sort(columns: [\"_value\"], desc: true)\n  |> limit(n: 20)\n  |> keep(columns: [\"dish_id\", \"ant_type\", \"_value\"])\n  |> rename(columns: {_value: \"Mean Tsys\"})",
+          "refId": "A"
+        }
+      ]
+    }
+
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["atmos", "array-health", "dishes", "faults", "scheduler"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ATMOS — Array Health",
+  "uid": "atmos-array-v1",
+  "version": 1
+}

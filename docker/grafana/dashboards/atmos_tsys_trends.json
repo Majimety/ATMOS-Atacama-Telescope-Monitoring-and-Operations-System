@@ -1,0 +1,405 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_INFLUXDB_ATMOS",
+      "label": "InfluxDB-ATMOS",
+      "description": "ATMOS InfluxDB Flux datasource",
+      "type": "datasource",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "11.0.0" },
+    { "type": "datasource", "id": "influxdb", "name": "InfluxDB", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" }
+  ],
+  "annotations": { "list": [] },
+  "description": "ATMOS — System temperature (Tsys) trends per dish and array average. Tsys is the key receiver performance metric: lower is better.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [
+    { "title": "PWV History", "url": "/d/atmos-pwv-v1", "type": "link", "icon": "external link" },
+    { "title": "Array Health", "url": "/d/atmos-array-v1", "type": "link", "icon": "external link" }
+  ],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Current Tsys — Snapshot",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Array-wide average Tsys right now. Good < 80 K, concern 80-130 K, critical > 130 K.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 130 }
+            ]
+          },
+          "unit": "kelvin",
+          "decimals": 1,
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 1 },
+      "id": 2,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "title": "Array avg Tsys",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"avg_tsys_k\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Number of dishes with Tsys above the critical threshold right now.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "short",
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "title": "Dishes with Tsys > 130 K",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> filter(fn: (r) => r._value > 130.0)\n  |> last()\n  |> group()\n  |> count()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Best (lowest) Tsys dish in the array right now.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 130 }
+            ]
+          },
+          "unit": "kelvin",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 1 },
+      "id": 4,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "title": "Best Tsys (min)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> last()\n  |> group()\n  |> min()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Worst (highest) Tsys dish in the array right now.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 130 }
+            ]
+          },
+          "unit": "kelvin",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 1 },
+      "id": 5,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "title": "Worst Tsys (max)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> last()\n  |> group()\n  |> max()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Current Tsys gauge for each online dish. Click a dish name for drill-down.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 130 }
+            ]
+          },
+          "unit": "kelvin",
+          "min": 0,
+          "max": 200,
+          "decimals": 0
+        }
+      },
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 1 },
+      "id": 6,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "title": "Per-dish Tsys gauge",
+      "type": "gauge",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: -2m)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> last()\n  |> keep(columns: [\"dish_id\", \"_value\"])\n  |> group(columns: [\"dish_id\"])",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 10,
+      "title": "Tsys History",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Array-average Tsys over time. Spikes correlate with atmospheric degradation or dish faults.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "unit": "kelvin",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 130 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 7 },
+      "id": 11,
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "title": "Array avg Tsys — time series",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"array_summary\" and r._field == \"avg_tsys_k\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"avg_tsys\")",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Tsys per dish over selected time range. Each line is one antenna. Hover for values. Use legend to isolate specific dishes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "unit": "kelvin"
+        }
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
+      "id": 12,
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["lastNotNull", "mean", "max"]
+        }
+      },
+      "title": "Per-dish Tsys — time series",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> filter(fn: (r) => contains(value: r.dish_id, set: ${dish_filter:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"dish_id\"])",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "id": 20,
+      "title": "Tsys Table — All Dishes",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Per-dish Tsys table with current, mean, and max values. Sorted by current Tsys descending — worst dishes on top.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 130 }
+            ]
+          },
+          "unit": "kelvin",
+          "decimals": 1,
+          "custom": { "displayMode": "color-background" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "dish_id" },
+            "properties": [
+              { "id": "custom.width", "value": 100 },
+              { "id": "custom.displayMode", "value": "auto" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 27 },
+      "id": 21,
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Current", "desc": true }]
+      },
+      "title": "Tsys per dish — current / mean / max",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"dish_telemetry\" and r._field == \"tsys_k\")\n  |> group(columns: [\"dish_id\"])\n  |> reduce(\n      identity: {current: 0.0, mean: 0.0, max: 0.0, count: 0},\n      fn: (r, accumulator) => ({\n          current: r._value,\n          mean: (accumulator.mean * float(v: accumulator.count) + r._value) / float(v: accumulator.count + 1),\n          max: if r._value > accumulator.max then r._value else accumulator.max,\n          count: accumulator.count + 1\n      })\n  )\n  |> drop(columns: [\"count\"])",
+          "refId": "A"
+        }
+      ]
+    }
+
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["atmos", "tsys", "receiver", "performance"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+        "definition": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n  bucket: \"atmos_telemetry\",\n  tag: \"dish_id\",\n  start: -1h\n)",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "dish_filter",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(\n  bucket: \"atmos_telemetry\",\n  tag: \"dish_id\",\n  start: -1h\n)",
+        "refresh": 2,
+        "type": "query",
+        "label": "Dish filter",
+        "allValue": ".*"
+      },
+      {
+        "current": { "selected": false, "text": "atmos_telemetry", "value": "atmos_telemetry" },
+        "hide": 0,
+        "name": "bucket",
+        "options": [
+          { "selected": true, "text": "atmos_telemetry", "value": "atmos_telemetry" }
+        ],
+        "query": "atmos_telemetry",
+        "type": "constant",
+        "label": "Bucket"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ATMOS — Tsys Trends",
+  "uid": "atmos-tsys-v1",
+  "version": 1
+}

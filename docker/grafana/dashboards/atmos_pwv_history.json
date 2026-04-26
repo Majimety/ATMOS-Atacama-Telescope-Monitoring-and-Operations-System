@@ -1,0 +1,503 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_INFLUXDB_ATMOS",
+      "label": "InfluxDB-ATMOS",
+      "description": "ATMOS InfluxDB Flux datasource",
+      "type": "datasource",
+      "pluginId": "influxdb",
+      "pluginName": "InfluxDB"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "11.0.0" },
+    { "type": "datasource", "id": "influxdb", "name": "InfluxDB", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "ATMOS — Precipitable Water Vapour (PWV) and full Chajnantor Plateau atmospheric conditions. PWV is the primary scheduling constraint for millimetre-wave observations.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 2,
+  "id": null,
+  "links": [
+    { "title": "Tsys Trends", "url": "/d/atmos-tsys-v1", "type": "link", "icon": "external link" },
+    { "title": "Array Health", "url": "/d/atmos-array-v1", "type": "link", "icon": "external link" }
+  ],
+  "panels": [
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Atmospheric Conditions — Current",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Current PWV. < 0.5 mm = excellent (Band 10), < 1.0 mm = very good, < 2.0 mm = good, < 3.0 mm = marginal, > 3.0 mm = poor.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": 0.5 },
+              { "color": "yellow", "value": 2.0 },
+              { "color": "orange", "value": 3.0 },
+              { "color": "red", "value": 5.0 }
+            ]
+          },
+          "unit": "lengthmm",
+          "decimals": 2,
+          "min": 0,
+          "max": 10,
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 5, "w": 5, "x": 0, "y": 1 },
+      "id": 2,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center"
+      },
+      "title": "PWV",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"pwv_mm\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Atmospheric opacity at 225 GHz — key metric for submillimetre observing quality.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "orange", "value": 0.1 },
+              { "color": "red", "value": 0.2 }
+            ]
+          },
+          "unit": "none",
+          "decimals": 3
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 5, "y": 1 },
+      "id": 3,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "title": "τ₂₂₅ GHz (opacity)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"tau_225ghz\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Wind speed at Chajnantor. > 25 m/s triggers stow.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 15 },
+              { "color": "orange", "value": 20 },
+              { "color": "red", "value": 25 }
+            ]
+          },
+          "unit": "velocityms",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 9, "y": 1 },
+      "id": 4,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "area"
+      },
+      "title": "Wind speed",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"wind_ms\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Ambient temperature at 5058 m ASL.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "blue", "value": null },
+              { "color": "green", "value": -10 },
+              { "color": "yellow", "value": 5 }
+            ]
+          },
+          "unit": "celsius",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 13, "y": 1 },
+      "id": 5,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "area"
+      },
+      "title": "Temperature",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"temp_c\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Relative humidity. High humidity → higher PWV → worse observing.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 30 },
+              { "color": "orange", "value": 60 },
+              { "color": "red", "value": 80 }
+            ]
+          },
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0, "max": 100
+        }
+      },
+      "gridPos": { "h": 5, "w": 4, "x": 17, "y": 1 },
+      "id": 6,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "title": "Humidity",
+      "type": "gauge",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"humidity_pct\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Atmospheric pressure at site elevation.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "light-blue" },
+          "unit": "pressurehpa",
+          "decimals": 1
+        }
+      },
+      "gridPos": { "h": 5, "w": 3, "x": 21, "y": 1 },
+      "id": 7,
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      },
+      "title": "Pressure",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: -5m)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"pressure_hpa\")\n  |> last()",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "id": 10,
+      "title": "PWV History",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "PWV over selected time range. Horizontal threshold lines at 1.0 mm (good), 2.0 mm (marginal), 3.0 mm (scheduler limit). Shaded bands indicate observing quality zones.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "area" }
+          },
+          "unit": "lengthmm",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "rgba(50,130,246,0.08)", "value": null },
+              { "color": "rgba(50,200,100,0.08)", "value": 0.5 },
+              { "color": "rgba(255,200,0,0.08)", "value": 2.0 },
+              { "color": "rgba(255,80,0,0.08)", "value": 3.0 }
+            ]
+          },
+          "min": 0
+        }
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 7 },
+      "id": 11,
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "title": "PWV history",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"pwv_mm\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"pwv_mm\")",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "id": 20,
+      "title": "Full Atmosphere — Multi-variable History",
+      "type": "row"
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Opacity at 225 GHz over time. Correlates tightly with PWV.",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "purple" },
+          "custom": { "lineWidth": 1.5, "fillOpacity": 6, "showPoints": "never", "spanNulls": true },
+          "unit": "none",
+          "decimals": 3
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "id": 21,
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "title": "τ₂₂₅ GHz history",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"tau_225ghz\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Wind speed history. Red threshold at 25 m/s (auto-stow limit).",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "light-green" },
+          "custom": {
+            "lineWidth": 1.5,
+            "fillOpacity": 6,
+            "showPoints": "never",
+            "spanNulls": true,
+            "thresholdsStyle": { "mode": "line+area" }
+          },
+          "unit": "velocityms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "rgba(255,0,0,0.12)", "value": 25 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "id": 22,
+      "options": {
+        "tooltip": { "mode": "single" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "title": "Wind speed history",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and r._field == \"wind_ms\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Temperature and humidity over time.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 1.5, "fillOpacity": 0, "showPoints": "never", "spanNulls": true },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "temp_c" },
+            "properties": [
+              { "id": "unit", "value": "celsius" },
+              { "id": "custom.axisPlacement", "value": "left" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "humidity_pct" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "min", "value": 0 },
+              { "id": "max", "value": 100 }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "id": 23,
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "title": "Temperature & humidity history",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\" and (r._field == \"temp_c\" or r._field == \"humidity_pct\"))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+      "description": "Summary statistics for atmospheric conditions over the selected time range.",
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "custom": { "align": "auto" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "pwv_mm" },
+            "properties": [
+              { "id": "unit", "value": "lengthmm" },
+              { "id": "displayName", "value": "PWV (mm)" },
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "thresholds", "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 2.0 },
+                    { "color": "red", "value": 3.0 }
+                  ]
+                }
+              }
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "wind_ms" }, "properties": [{ "id": "unit", "value": "velocityms" }, { "id": "displayName", "value": "Wind (m/s)" }] },
+          { "matcher": { "id": "byName", "options": "temp_c" }, "properties": [{ "id": "unit", "value": "celsius" }, { "id": "displayName", "value": "Temp (°C)" }] },
+          { "matcher": { "id": "byName", "options": "tau_225ghz" }, "properties": [{ "id": "displayName", "value": "τ₂₂₅" }] }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "id": 24,
+      "options": {
+        "showHeader": true,
+        "footer": { "show": true, "reducer": ["mean"], "fields": ["pwv_mm", "wind_ms", "temp_c", "tau_225ghz"] }
+      },
+      "title": "Atmosphere summary statistics",
+      "type": "table",
+      "targets": [
+        {
+          "datasource": { "type": "influxdb", "uid": "${DS_INFLUXDB_ATMOS}" },
+          "query": "from(bucket: \"atmos_atmosphere\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"atmosphere\")\n  |> filter(fn: (r) => r._field == \"pwv_mm\" or r._field == \"tau_225ghz\" or r._field == \"wind_ms\" or r._field == \"temp_c\")\n  |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)\n  |> pivot(rowKey: [\"_time\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> sort(columns: [\"_time\"], desc: true)",
+          "refId": "A"
+        }
+      ]
+    }
+
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["atmos", "pwv", "atmosphere", "weather", "chajnantor"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "ATMOS — PWV & Atmosphere History",
+  "uid": "atmos-pwv-v1",
+  "version": 1
+}
