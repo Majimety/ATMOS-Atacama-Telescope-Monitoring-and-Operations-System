@@ -1,16 +1,32 @@
+# influxdb.yml — Grafana InfluxDB datasource provisioning
+#
+# Environment variable expansion in Grafana provisioning files uses the
+# syntax $VAR or ${VAR} without shell-style defaults (${VAR:-default}).
+# Shell-style defaults are silently ignored by Grafana's provisioning engine,
+# leaving the literal string "${INFLUX_ORG:-atmos}" as the org name.
+#
+# Resolution: pass all required values as explicit GF_* environment variables
+# in docker-compose.yml, then reference them here without defaults.  See the
+# grafana service environment block in docker-compose.yml for the mapping.
+#
+# Bucket alignment: INFLUX_BUCKET defaults to "atmos_telemetry" (matching
+# influx_writer.py).  The previous provisioning used "telemetry", which
+# would direct Grafana queries to a non-existent bucket when the writer was
+# using the default value.
+
 apiVersion: 1
 
 datasources:
   - name: InfluxDB-ATMOS
     type: influxdb
     access: proxy
-    url: http://influxdb:8086
+    url: $INFLUX_URL
     jsonData:
       version: Flux
-      organization: ${INFLUX_ORG:-atmos}
-      defaultBucket: ${INFLUX_BUCKET:-telemetry}
+      organization: $INFLUX_ORG
+      defaultBucket: $INFLUX_BUCKET
       tlsSkipVerify: true
     secureJsonData:
-      token: ${INFLUX_TOKEN}
+      token: $INFLUX_TOKEN
     isDefault: true
     editable: false

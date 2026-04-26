@@ -301,19 +301,43 @@ async def login(form: OAuth2PasswordRequestForm = Depends()):
     )
 
 
+class RefreshRequest(BaseModel):
+    """
+    Request body for the token-refresh endpoint.
+
+    FastAPI interprets a bare ``str`` parameter on a POST handler as a query
+    string parameter, not a request body field.  Wrapping the token in a
+    Pydantic model forces FastAPI to parse the JSON body, which matches the
+    ``application/json`` POST issued by the frontend ``auth.js`` store.
+    """
+
+    refresh_token: str
+
+
 @router.post("/refresh", response_model=Token)
-async def refresh_token(refresh_tok: str):
+async def refresh_token(body: RefreshRequest) -> Token:
+    """
+    Exchange a valid refresh token for a new access/refresh token pair.
+
+    The refresh token is validated for signature, expiry, and the ``type``
+    claim (must equal ``"refresh"``).  A new token pair is issued on success;
+    both old tokens should be discarded by the client.
+
+    Returns HTTP 401 if the token is expired, malformed, or issued for a
+    disabled account.
+    """
     try:
-        payload = jwt.decode(refresh_tok, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(body.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "refresh":
             raise ValueError("not a refresh token")
         username = payload.get("sub")
         user = get_user(username)
         if not user or user.disabled:
-            raise ValueError("user invalid")
+            raise ValueError("user not found or disabled")
     except (JWTError, ValueError):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
         )
 
     return Token(

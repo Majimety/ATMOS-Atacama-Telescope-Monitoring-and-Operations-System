@@ -155,10 +155,15 @@ export const useAuthStore = create(
         if (demoMode || !refreshToken) return false;
 
         try {
-          const res = await fetch(
-            `${API}/auth/refresh?refresh_tok=${encodeURIComponent(refreshToken)}`,
-            { method: "POST", signal: AbortSignal.timeout(5000) },
-          );
+          // POST the refresh token as a JSON body.
+          // The server's /auth/refresh endpoint expects application/json with
+          // a { refresh_token } field, not a query parameter.
+          const res = await fetch(`${API}/auth/refresh`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ refresh_token: refreshToken }),
+            signal:  AbortSignal.timeout(5000),
+          });
 
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
 

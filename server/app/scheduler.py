@@ -242,20 +242,47 @@ class ObservationScheduler:
                     self._history.append(self._active)
                     self._active = None
 
-            # Try to start next queued job
+            # Scan the queue for the highest-priority feasible job.
+            #
+            # The original implementation only evaluated queue[0] and would
+            # stall indefinitely if that job's constraints were unmet (e.g.
+            # PWV persistently above the job's max_pwv_mm threshold), even when
+            # lower-priority jobs in the queue were perfectly observable.
+            #
+            # The corrected approach iterates the entire queue in priority order
+            # and starts the first job whose observing constraints are currently
+            # satisfied.  Infeasible jobs are annotated with a skip_reason for
+            # display in the scheduler UI but remain in the queue so they are
+            # retried automatically when conditions improve.
             if not self._active and self._queue:
-                candidate = self._queue[0]
-                ok, reason = self._can_observe(candidate)
-                if ok:
-                    candidate.status = JobStatus.RUNNING
-                    candidate.started_at = time.time()
-                    self._active = self._queue.pop(0)
-                    logger.info(
-                        f"Scheduler: started — {self._active.target_name} (band B{self._active.band})"
+                started = False
+                for i, candidate in enumerate(self._queue):
+                    ok, reason = self._can_observe(candidate)
+                    if ok:
+                        candidate.status = JobStatus.RUNNING
+                        candidate.started_at = time.time()
+                        candidate.skip_reason = None
+                        self._active = self._queue.pop(i)
+                        logger.info(
+                            "Scheduler: started — %s (band B%d, queue pos %d)",
+                            self._active.target_name,
+                            self._active.band,
+                            i,
+                        )
+                        started = True
+                        break
+                    else:
+                        # Annotate but do not remove — conditions may improve.
+                        candidate.skip_reason = reason
+
+                if not started:
+                    logger.debug(
+                        "Scheduler: no feasible job in queue of %d "
+                        "(PWV=%.2f mm, wind=%.1f m/s)",
+                        len(self._queue),
+                        self._last_pwv,
+                        self._last_wind,
                     )
-                else:
-                    # Don't block forever — check periodically
-                    candidate.skip_reason = reason
 
     # ── State export ──────────────────────────────────────────────────────────
 

@@ -77,7 +77,7 @@ services:
       INFLUX_URL: http://influxdb:8086
       INFLUX_TOKEN: ${INFLUX_TOKEN}
       INFLUX_ORG: ${INFLUX_ORG:-atmos}
-      INFLUX_BUCKET: ${INFLUX_BUCKET:-telemetry}
+      INFLUX_BUCKET: ${INFLUX_BUCKET:-atmos_telemetry}
       REDIS_URL: redis://redis:6379
       ATMOS_CORS_ORIGINS: "https://${DOMAIN},https://app.${DOMAIN}"
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -131,13 +131,15 @@ services:
       DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER:-admin}
       DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD}
       DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG:-atmos}
-      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET:-telemetry}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET:-atmos_telemetry}
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
       INFLUXD_LOG_LEVEL: warn
     volumes:
       - influx-data:/var/lib/influxdb2
       - influx-config:/etc/influxdb2
-      - ./influx/init:/docker-entrypoint-initdb.d  # schema & retention policies
+      # Place .flux or .sh initialisation scripts in influx/init/;
+      # InfluxDB executes them in lexicographic order on first startup.
+      - ./influx/init:/docker-entrypoint-initdb.d
     networks: [atmos-net, monitoring-net]
     healthcheck:
       test: ["CMD", "influx", "ping"]
@@ -162,6 +164,12 @@ services:
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_LOG_LEVEL: warn
+      # Required for datasource provisioning (influxdb.yml uses plain $VAR
+      # syntax; shell-style ${VAR:-default} is not expanded by Grafana).
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_ORG: ${INFLUX_ORG:-atmos}
+      INFLUX_BUCKET: ${INFLUX_BUCKET:-atmos_telemetry}
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning
