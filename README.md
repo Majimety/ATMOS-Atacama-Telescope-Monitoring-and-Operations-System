@@ -315,7 +315,7 @@ All 10 ALMA bands (B1–B10) are selectable in the control panel.
 - [x] **Observation scheduling queue** — priority-based async engine with real-time constraint evaluation (elevation, PWV, wind)
 - [x] **InfluxDB live writer activation** — batch-buffered writer connected to the WebSocket broadcast loop; lazy init; graceful degradation
 - [x] **Auth UI** — terminal-aesthetic login page with role indicator, demo mode fallback, and logout in dashboard header
-- [ ] **Grafana dashboard templates** — pre-built panels for Tsys trends, PWV history, and array health over time
+- [x] **Grafana dashboard templates** — pre-built panels for Tsys trends, PWV history, and array health over time
 
 ### Medium-term
 
