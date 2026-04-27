@@ -8,9 +8,16 @@
  *   - RFI flagging: outlier detection via MAD threshold
  *   - Bad baseline identification: low-coherence baselines highlighted
  *
- * Integration: subscribes to WebSocket telemetry, computes mock visibility
- * amplitudes from Tsys and pointing error data. Swap simulateVisibility()
- * with real correlator output when hardware is connected.
+ * Data source (two modes):
+ *   LIVE  — pass `visibilityMatrix` prop from a real correlator feed.
+ *            Shape: VisibilityCell[N][N] where VisibilityCell = { amp, phase, flagged, reason }
+ *            When this prop is provided the simulator is bypassed entirely.
+ *   MOCK  — default fallback when no `visibilityMatrix` is supplied.
+ *            Uses simulateVisibilities() which derives synthetic amplitudes
+ *            from Tsys and pointing error data.
+ *
+ * To wire live data: pass `visibilityMatrix` from the WebSocket telemetry store
+ * once the backend exposes a correlator data endpoint.
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
@@ -108,6 +115,9 @@ export default function BaselineCorrelator({
   telemetryAntennas = null,
   pwv = 1.2,
   windSpeed = 5,
+  // Live correlator feed — when provided, simulateVisibilities() is bypassed.
+  // Shape: VisibilityCell[N][N] where VisibilityCell = { amp, phase, flagged, reason }
+  visibilityMatrix = null,
 }) {
   const canvasRef = useRef(null);
   const [mode, setMode] = useState("amplitude"); // "amplitude" | "phase"
@@ -144,13 +154,25 @@ export default function BaselineCorrelator({
   const N = antennas.length;
   const CELL = Math.min(28, Math.floor(520 / N));
 
+  // If a real visibility matrix is supplied from the backend, use it directly.
+  const isLive = visibilityMatrix !== null;
+
   const [matrix, setMatrix] = useState(() =>
-    simulateVisibilities(antennas, pwv, windSpeed, 0)
+    isLive ? visibilityMatrix : simulateVisibilities(antennas, pwv, windSpeed, 0)
   );
 
-  // Update simulation at 2Hz when running
+  // Sync live matrix when the prop updates
   useEffect(() => {
-    if (!running) return;
+    if (isLive) {
+      setMatrix(visibilityMatrix);
+      const flags = visibilityMatrix.flat().filter((c) => c.flagged).length / 2;
+      setFlagCount(Math.round(flags));
+    }
+  }, [isLive, visibilityMatrix]);
+
+  // Update simulation at 2Hz when running in mock mode
+  useEffect(() => {
+    if (!running || isLive) return;
     const id = setInterval(() => {
       setTime((t) => {
         const next = t + 0.5;
@@ -303,6 +325,10 @@ export default function BaselineCorrelator({
           </h2>
           <p style={{ margin: "4px 0 0", fontSize: 12, color: "#6080a0" }}>
             {N}×{N} = {totalBaselines} cross-correlations · {flagCount} flagged ({flagPercent}%)
+            {" · "}
+            <span style={{ color: isLive ? "#60d080" : "#a06040" }}>
+              {isLive ? "● LIVE" : "○ SIMULATED"}
+            </span>
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -314,12 +340,13 @@ export default function BaselineCorrelator({
               color: mode === m ? "#80c0ff" : "#6080a0",
             }}>{mode === m ? "● " : ""}{m}</button>
           ))}
-          <button onClick={() => setRunning(!running)} style={{
-            padding: "4px 12px", fontSize: 11, borderRadius: 6, cursor: "pointer",
-            background: running ? "#1a3a20" : "#3a1a1a",
-            border: `0.5px solid ${running ? "#40a060" : "#a04040"}`,
-            color: running ? "#60d080" : "#d06060",
-          }}>{running ? "⏸" : "▶"}</button>
+          <button onClick={() => setRunning(!running)} disabled={isLive} style={{
+            padding: "4px 12px", fontSize: 11, borderRadius: 6, cursor: isLive ? "default" : "pointer",
+            background: isLive ? "#111827" : running ? "#1a3a20" : "#3a1a1a",
+            border: `0.5px solid ${isLive ? "#2a3a5a" : running ? "#40a060" : "#a04040"}`,
+            color: isLive ? "#2a3a5a" : running ? "#60d080" : "#d06060",
+            title: isLive ? "Pause disabled in live mode" : "",
+          }}>{isLive ? "⏸" : running ? "⏸" : "▶"}</button>
         </div>
       </div>
 
