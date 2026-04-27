@@ -22,6 +22,8 @@
 └─────────────────────────────┼───────────────────────────────┘
                               │ WebSocket (JSON, 1Hz)
                               │ ws://localhost:8000/ws/telemetry
+                              │ ⚠ NO AUTH — JWT validation not yet extended
+                              │   to this endpoint (see Auth Flow § Known Gaps)
 ┌─────────────────────────────┼───────────────────────────────┐
 │                        FASTAPI SERVER                       │
 │                             │                               │
@@ -48,8 +50,8 @@
 │    POST /api/control/fault    — inject/clear fault          │
 │    GET  /api/scheduler        — queue state + history       │
 │    POST /api/scheduler/jobs   — enqueue observation job     │
-│    DEL  /api/scheduler/jobs/{id} — remove job (operator+)   │
-│    POST /api/scheduler/skip   — skip active job (operator+) │
+│    DEL  /api/scheduler/jobs/{id} — remove job (operator+) ⚠ role guard may be incomplete   │
+│    POST /api/scheduler/skip   — skip active job (operator+) ⚠ role guard may be incomplete │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -185,7 +187,7 @@ client/src/
     AlertFeed.jsx              Event log
     SchedulerPanel.jsx         Observation queue + progress bar + history log
     UVCoveragePlot.jsx         UV-plane coverage (science)
-    BaselineCorrelator.jsx     Baseline correlation matrix (science)
+    BaselineCorrelator.jsx     Baseline correlation matrix (science) ⚠ uses simulateVisibilities() — not yet wired to live backend data
   three/
     Scene.jsx                  Three.js canvas + all 3D objects
     DishMesh.jsx               Single dish 3D model
@@ -204,5 +206,20 @@ docker/
 
 influx/
   schema.flux                  InfluxDB Flux query examples
-  seed.py                      Seed 24h of historical data
+  seed.py                      Seed 24h of historical data ⚠ may generate stale schema if frame fields have changed
 ```
+
+## Known Gaps & Roadmap Items
+
+Items marked ⚠ are partially implemented; items marked ✗ are not yet implemented.
+
+### Security
+- ✗ **WebSocket auth** — `/ws/telemetry` is currently an open endpoint. JWT validation exists in `auth.py` and covers all REST routes, but has not yet been extended to the WebSocket handshake. Any client can connect and receive telemetry or send commands without a token.
+- ⚠ **RBAC on scheduler write operations** — `DELETE /api/scheduler/jobs/{id}` and `POST /api/scheduler/skip` are documented as `operator+` only, but role enforcement in `app/api/scheduler.py` may be incomplete or absent.
+
+### Data / Science
+- ✗ **BaselineCorrelator live data** — `BaselineCorrelator.jsx` currently calls `simulateVisibilities()` (mock/synthetic data). It is not yet connected to a real visibility data feed from the backend.
+- ⚠ **influx/seed.py schema drift** — `seed.py` seeds 24 hours of historical telemetry. If the WebSocket frame schema has gained new fields (e.g. `scheduler`), seeded data will be missing those fields and may cause type mismatches in Flux queries or Grafana panels.
+
+### Tooling
+- ⚠ **Vite version** — README specifies Vite 8.x, which has not yet been released (current stable: 6.x). Verify whether this is a typo or an intentional alpha/RC dependency before production builds.
