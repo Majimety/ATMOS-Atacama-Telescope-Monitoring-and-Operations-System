@@ -12,7 +12,7 @@ A high-fidelity **SCADA (Supervisory Control and Data Acquisition)** simulation 
 
 ## Preview
 
-![ATMOS Dashboard — Pointing Control panel with 3D dish visualization](docs/picturse/ATMOS_Dashboard.png)
+![ATMOS Dashboard — Pointing Control panel with 3D dish visualization](docs/pictures/ATMOS_Dashboard.png)
 
 > *ATMOS control interface showing 62/64 antennas online, slewing to target 3C 273 at Az 84.1° El 63.3°*
 
