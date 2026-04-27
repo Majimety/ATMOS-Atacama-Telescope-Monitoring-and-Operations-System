@@ -10,8 +10,9 @@ import asyncio
 import json
 import logging
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect, Query
 
+from auth import ws_authenticate, Role
 from app.simulation.alma_sim import (
     get_system_snapshot,
     cmd_slew,
@@ -67,9 +68,15 @@ class ConnectionPool:
 pool = ConnectionPool()
 
 
-async def telemetry_endpoint(ws: WebSocket):
+async def telemetry_endpoint(ws: WebSocket, token: str = Query(default="")):
     """
     WebSocket endpoint — ws://localhost:8000/ws/telemetry
+
+    Requires a valid JWT passed as query parameter:
+      ws://localhost:8000/ws/telemetry?token=<access_token>
+
+    Minimum role: VIEWER. Connection is rejected with close code 4403
+    if the token is missing, invalid, or expired.
 
     Per-tick pipeline:
       1. Build snapshot (async — fetches live weather if available)
@@ -79,6 +86,10 @@ async def telemetry_endpoint(ws: WebSocket):
       5. Broadcast to all connected clients
       6. Wait up to 1s for incoming command
     """
+    # Authenticate before accepting — ws_authenticate raises WebSocketException
+    # (close code 4403) if the token is invalid or the role is insufficient.
+    await ws_authenticate(token, Role.VIEWER)
+
     await pool.connect(ws)
 
     try:
@@ -114,8 +125,8 @@ def _handle_command(command: dict):
     cmd_type = command.get("type")
 
     if cmd_type == "slew":
-        az   = float(command.get("az", 183.7))
-        el   = float(command.get("el", 52.4))
+        az = float(command.get("az", 183.7))
+        el = float(command.get("el", 52.4))
         name = command.get("target_name", "Custom")
         cmd_slew(az, el, name)
         logger.info(f"SLEW → Az:{az}° El:{el}° ({name})")
