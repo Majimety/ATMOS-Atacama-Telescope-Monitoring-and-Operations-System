@@ -86,9 +86,6 @@ async def telemetry_endpoint(ws: WebSocket, token: str = Query(default="")):
       5. Broadcast to all connected clients
       6. Wait up to 1s for incoming command
     """
-    # Authenticate before accepting — ws_authenticate raises WebSocketException
-    # (close code 4403) if the token is invalid or the role is insufficient.
-    await ws_authenticate(token, Role.VIEWER)
 
     await pool.connect(ws)
 
