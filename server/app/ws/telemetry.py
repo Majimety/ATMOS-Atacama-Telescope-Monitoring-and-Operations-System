@@ -4,15 +4,16 @@ telemetry.py — WebSocket handler สำหรับ ATMOS
 รับ connection จาก Frontend แล้ว stream snapshot ทุก 1 วินาที
 รับ command จาก Frontend (slew, stow, set_band, set_mode, inject_fault)
 ส่ง snapshot ไป InfluxDB และ Scheduler ทุก tick
+
+Auth ถูก handle ใน main.py ก่อน call telemetry_endpoint()
 """
 
 import asyncio
 import json
 import logging
 
-from fastapi import WebSocket, WebSocketDisconnect, Query
+from fastapi import WebSocket, WebSocketDisconnect
 
-from auth import ws_authenticate, Role
 from app.simulation.alma_sim import (
     get_system_snapshot,
     cmd_slew,
@@ -68,25 +69,21 @@ class ConnectionPool:
 pool = ConnectionPool()
 
 
-async def telemetry_endpoint(ws: WebSocket, token: str = Query(default="")):
+async def telemetry_endpoint(ws: WebSocket):
     """
     WebSocket endpoint — ws://localhost:8000/ws/telemetry
 
-    Requires a valid JWT passed as query parameter:
-      ws://localhost:8000/ws/telemetry?token=<access_token>
-
-    Minimum role: VIEWER. Connection is rejected with close code 4403
-    if the token is missing, invalid, or expired.
+    Auth ทำที่ main.py แล้ว ก่อน call function นี้
+    Function นี้รับแค่ ws object ไม่ทำ auth ซ้ำ
 
     Per-tick pipeline:
       1. Build snapshot (async — fetches live weather if available)
       2. Advance scheduler (checks constraints, starts/completes jobs)
       3. Write to InfluxDB (non-blocking, batched, never raises)
       4. Inject scheduler state into snapshot
-      5. Broadcast to all connected clients
+      5. Broadcast to ALL connected clients
       6. Wait up to 1s for incoming command
     """
-
     await pool.connect(ws)
 
     try:
@@ -98,13 +95,13 @@ async def telemetry_endpoint(ws: WebSocket, token: str = Query(default="")):
             await scheduler.tick(snapshot)
             snapshot["scheduler"] = scheduler.get_state()
 
-            # 3. Write to InfluxDB (fire-and-forget style, errors are swallowed)
+            # 3. Write to InfluxDB (fire-and-forget, errors swallowed)
             asyncio.ensure_future(influx_writer.write(snapshot))
 
-            # 4. Send to this client
-            await ws.send_text(json.dumps(snapshot, default=str))
+            # 4. Broadcast snapshot ไปหา ALL clients
+            await pool.broadcast(snapshot)
 
-            # 5. Listen for command (1s window)
+            # 5. Listen for command จาก client นี้ (1s window)
             try:
                 raw = await asyncio.wait_for(ws.receive_text(), timeout=1.0)
                 _handle_command(json.loads(raw))

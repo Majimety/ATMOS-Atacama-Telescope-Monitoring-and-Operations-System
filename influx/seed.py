@@ -38,6 +38,19 @@ DISH_IDS = (
 )
 
 
+def get_ant_type(dish_id: str) -> str:
+    """
+    ตรวจ ACA ก่อน เพราะ "ACA01".startswith("A") เป็น True
+    ถ้าตรวจ "A" ก่อน dish ACA ทุกตัวจะถูก tag ว่า "DA" ผิด
+    """
+    if dish_id.startswith("ACA"):
+        return "CM"  # ACA Morita Array — 7m dishes
+    elif dish_id.startswith("A"):
+        return "DA"  # Arm A — AEM 12m
+    else:
+        return "DV"  # Arms B, C, D — Vertex 12m
+
+
 def main():
     client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
     write_api = client.write_api(write_options=SYNCHRONOUS)
@@ -82,14 +95,7 @@ def main():
             p = (
                 Point("dish_telemetry")
                 .tag("dish_id", dish_id)
-                .tag(
-                    "ant_type",
-                    (
-                        "DA"
-                        if dish_id.startswith("A")
-                        else "CM" if dish_id.startswith("ACA") else "DV"
-                    ),
-                )
+                .tag("ant_type", get_ant_type(dish_id))
                 .field("online", online)
                 .field("az_deg", (180 + math.sin(t.timestamp() / 3600) * 10) % 360)
                 .field("el_deg", 52.4 + math.cos(t.timestamp() / 7200) * 5)

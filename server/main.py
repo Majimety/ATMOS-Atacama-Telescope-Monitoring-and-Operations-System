@@ -13,7 +13,7 @@ from app.scheduler import scheduler, ObservationJob, JobPriority
 from app.simulation.alma_sim import cmd_inject_fault, cmd_set_band, cmd_set_mode
 from app.simulation.pointing_sim import controller
 from app.api import atmosphere, telescopes, control as control_api
-from app.api.scheduler import router as scheduler_router
+from app.api import scheduler as scheduler_api
 from influx_writer import influx_writer
 from auth import router as auth_router, ws_authenticate, Role
 
@@ -37,7 +37,8 @@ app.include_router(auth_router)
 app.include_router(control_api.router)
 app.include_router(atmosphere.router)
 app.include_router(telescopes.router)
-app.include_router(scheduler_router)
+app.include_router(scheduler_api.router)
+
 
 # ── Health / status ───────────────────────────────────────────────────────────
 
@@ -119,6 +120,18 @@ def influx_status():
 
 
 @app.websocket("/ws/telemetry")
-async def ws_telemetry(ws: WebSocket, token: str = Query(default="")):
-    await ws_authenticate(token, Role.VIEWER)  # ← บังคับทุก connection
-    await telemetry_endpoint(ws, token)
+async def ws_telemetry(
+    ws: WebSocket,
+    token: str = Query(default=""),
+):
+    """
+    WebSocket telemetry stream.
+    ถ้า token ว่าง → รับ connection ในฐานะ viewer (demo/dev mode)
+    ถ้า token ไม่ valid → FastAPI ส่ง close frame 4403 กลับอัตโนมัติ
+
+    Auth ทำที่นี่ที่เดียว — telemetry_endpoint ไม่ทำ auth ซ้ำ
+    """
+    if token:
+        await ws_authenticate(token, Role.VIEWER)
+
+    await telemetry_endpoint(ws)
