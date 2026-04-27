@@ -161,7 +161,7 @@ where H is the hour angle and δ is source declination. Both (u, v) and conjugat
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Frontend framework | React | 19.x |
-| Build tool | Vite | 8.x |
+| Build tool | Vite | 8.x ⚠ |
 | 3D rendering | Three.js + @react-three/fiber + drei | r184 / 9.x |
 | State management | Zustand | 5.x |
 | Charting | Recharts | 3.x |
@@ -175,6 +175,8 @@ where H is the hour angle and δ is source declination. Both (u, v) and conjugat
 | Reverse proxy | Traefik | 3.1 |
 | Containerisation | Docker + Compose | — |
 | Weather API | Open-Meteo | — |
+
+> ⚠ **Vite 8.x** has not yet been released (current stable: 6.x). This may be a typo or an intentional alpha/RC pin — verify before production builds.
 
 ---
 
@@ -266,6 +268,8 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
 
 **Endpoint:** `ws://localhost:8000/ws/telemetry`
 
+> ⚠ **No authentication** — this endpoint is currently open. JWT validation covers all REST routes but has not yet been extended to the WebSocket handshake. See [Roadmap](#roadmap) (Medium-term).
+
 **Server → Client** (1 Hz, JSON):
 ```json
 {
@@ -318,19 +322,24 @@ All 10 ALMA bands (B1–B10) are selectable in the control panel.
 
 ## Roadmap
 
-### Near-term
+### Recently Completed
 
 - [x] **Observation scheduling queue** — priority-based async engine with real-time constraint evaluation (elevation, PWV, wind)
 - [x] **InfluxDB live writer activation** — batch-buffered writer connected to the WebSocket broadcast loop; lazy init; graceful degradation
 - [x] **Auth UI** — terminal-aesthetic login page with role indicator, demo mode fallback, and logout in dashboard header
 - [x] **Grafana dashboard templates** — pre-built panels for Tsys trends, PWV history, and array health over time
 
-### Medium-term
+### Near-term
 
+- [ ] **WebSocket auth** — extend JWT validation to the `/ws/telemetry` endpoint (currently open)
+- [ ] **RBAC enforcement on scheduler write ops** — complete role guard for `DELETE /api/scheduler/jobs/{id}` and `POST /api/scheduler/skip` (operator+ only)
 - [ ] **Source catalogue integration** — searchable catalogue (Simbad/NED API) for target selection by name
 - [ ] **Observation sensitivity calculator** — estimate RMS noise as a function of bandwidth, integration time, Tsys, and number of antennas
-- [ ] **WebSocket auth** — extend JWT validation to the `/ws/telemetry` endpoint (currently open)
+
+### Medium-term
+
 - [ ] **Multi-array mode** — toggle between ALMA, APEX, and EHT node displays
+- [ ] **seed.py schema sync** — update `influx/seed.py` to match current WebSocket frame fields (e.g. `scheduler` block)
 
 ### Long-term
 
