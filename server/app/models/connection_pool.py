@@ -25,7 +25,7 @@ from app.simulation.alma_sim import (
     cmd_inject_fault,
     cmd_clear_fault,
 )
-from app.scheduler import scheduler
+from server.app.obs_queue import scheduler
 from influx_writer import influx_writer
 
 logger = logging.getLogger(__name__)

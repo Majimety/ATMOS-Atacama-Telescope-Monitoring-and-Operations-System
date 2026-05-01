@@ -143,12 +143,12 @@ where H is the hour angle and δ is source declination. Both (u, v) and conjugat
 | **SCADA Control Panel** | Slew to Az/El, stow all, band selection (B1–B10), obs mode, fault injection |
 | **UV-Coverage Plot** | Real ENU→UVW transform, band-scaled wavelength, HA sweep animation, angular resolution readout |
 | **Baseline Correlator** | N×N visibility matrix, amplitude/phase toggle, MAD-based RFI flagging, fault annotation |
-| **Pointing Simulation** | Realistic slew rate (2°/s az, 1°/s el), smooth interpolation, stow position El 15° |
+| **Pointing Simulation** | Realistic slew rate (3°/s az, 1.5°/s el), smooth interpolation, settling phase, stow position El 15° |
 | **JWT + RBAC** | Four-tier access control: viewer → operator → engineer → admin |
 | **Resilient WebSocket** | Exponential backoff (1s–60s), IndexedDB offline buffer, data-gap detection, RTT display |
 | **InfluxDB Integration** | Batch-buffered async writer (flush every 50 points or 10 s); lazy init; auto-disables when `INFLUX_TOKEN` unset; errors suppressed so telemetry loop is unaffected |
 | **Observation Scheduler** | Priority-based async queue (`urgent/high/normal/low`) with real-time constraint evaluation (elevation, PWV, wind); 1 s tick engine; pre-seeded with 5 targets (Sgr A\*, M87, Orion KL, 3C 273, Crab Nebula); operator+ reorder/remove; 20-entry history log |
-| **Auth UI** | Terminal-aesthetic login page (CRT scanlines, blinking cursor, amber prompt); quick-fill buttons for 3 demo roles; role badge + username + logout in dashboard header; demo mode local fallback when backend unreachable |
+| **Auth UI** | Terminal-aesthetic login page (CRT scanlines, blinking cursor, amber prompt); quick-fill buttons for demo roles; role badge + username + logout in dashboard header; demo mode local fallback when backend unreachable |
 | **Docker Compose** | Traefik + TLS, InfluxDB 2.7, Grafana 11, Redis, multi-stage Dockerfiles |
 | **REST API** | Swagger UI at `/docs`, full OpenAPI 3.1 schema |
 | **Sparkline Graphs** | Live Tsys, PWV, wind, τ history with configurable thresholds |
@@ -161,7 +161,7 @@ where H is the hour angle and δ is source declination. Both (u, v) and conjugat
 | Layer | Technology | Version |
 |-------|-----------|---------|
 | Frontend framework | React | 19.x |
-| Build tool | Vite | 8.x ⚠ |
+| Build tool | Vite | 6.x |
 | 3D rendering | Three.js + @react-three/fiber + drei | r184 / 9.x |
 | State management | Zustand | 5.x |
 | Charting | Recharts | 3.x |
@@ -175,8 +175,6 @@ where H is the hour angle and δ is source declination. Both (u, v) and conjugat
 | Reverse proxy | Traefik | 3.1 |
 | Containerisation | Docker + Compose | — |
 | Weather API | Open-Meteo | — |
-
-> ⚠ **Vite 8.x** has not yet been released (current stable: 6.x). This may be a typo or an intentional alpha/RC pin — verify before production builds.
 
 ---
 
@@ -227,8 +225,9 @@ Frontend runs at `http://localhost:5173`
 > | Role | Username | Password |
 > |------|----------|----------|
 > | admin | `admin` | `admin123` |
-> | operator | `operator` | `op123` |
-> | observer | `observer` | `obs123` |
+> | engineer | `engineer` | `engineer123` |
+> | operator | `operator` | `operator123` |
+> | viewer | `viewer` | `viewer123` |
 
 ### Production (Docker)
 
@@ -248,37 +247,42 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
 
 ### REST Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/` | System status and version |
-| `GET` | `/health` | Health check with current pointing state |
-| `GET` | `/api/telescopes/` | List all antenna states |
-| `GET` | `/api/atmosphere/` | Current meteorological data |
-| `POST` | `/api/slew` | Command array to Az/El (body: `{az, el}`) |
-| `POST` | `/api/stow` | Stow all antennas to El 15° |
-| `POST` | `/api/band/{band}` | Set receiver band (1–10) |
-| `POST` | `/api/mode/{mode}` | Set observation mode |
-| `POST` | `/api/fault` | Inject or clear antenna fault |
-| `GET` | `/api/scheduler` | Get scheduler state (active job + queue + history) |
-| `POST` | `/api/scheduler/jobs` | Enqueue a new observation job |
-| `DELETE` | `/api/scheduler/jobs/{id}` | Remove a queued job (operator+ only) |
-| `POST` | `/api/scheduler/skip` | Skip the current active job (operator+ only) |
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `GET` | `/` | — | System status and version |
+| `GET` | `/health` | — | Health check with current pointing state |
+| `GET` | `/api/telescopes/` | viewer+ | List all antenna states |
+| `GET` | `/api/atmosphere/` | viewer+ | Current meteorological data |
+| `GET` | `/api/control/pointing` | viewer+ | Current pointing (az, el, mode) |
+| `POST` | `/api/control/slew` | operator+ | Command array to Az/El |
+| `POST` | `/api/control/stow` | operator+ | Stow all antennas to El 15° |
+| `POST` | `/api/control/band/{band}` | operator+ | Set receiver band (1–10) |
+| `POST` | `/api/control/mode/{mode}` | operator+ | Set observation mode |
+| `POST` | `/api/control/fault` | engineer+ | Inject or clear antenna fault |
+| `GET` | `/api/scheduler` | viewer+ | Get scheduler state (active job + queue + history) |
+| `POST` | `/api/scheduler/jobs` | operator+ | Enqueue a new observation job |
+| `DELETE` | `/api/scheduler/jobs/{id}` | operator+ | Remove a queued job |
+| `POST` | `/api/scheduler/jobs/{id}/move` | operator+ | Reorder job up/down in queue |
+| `POST` | `/api/scheduler/skip` | operator+ | Skip the current active job |
+| `GET` | `/api/influx/status` | — | InfluxDB writer diagnostics |
 
 ### WebSocket
 
 **Endpoint:** `ws://localhost:8000/ws/telemetry`
 
-> ⚠ **No authentication** — this endpoint is currently open. JWT validation covers all REST routes but has not yet been extended to the WebSocket handshake. See [Roadmap](#roadmap) (Medium-term).
+Pass a valid JWT as a query parameter: `ws://localhost:8000/ws/telemetry?token=<access_token>`
+
+If the token is omitted, the connection is accepted as an anonymous viewer (demo/dev mode). If the token is present but invalid, the server closes with code **4403**.
 
 **Server → Client** (1 Hz, JSON):
 ```json
 {
   "timestamp": "2025-04-23T07:15:00.000Z",
-  "system":    { "band": 6, "freq_ghz": 230, "obs_mode": "interferometry", "target_name": "Sgr A*", ... },
-  "atmosphere":{ "pwv_mm": 0.52, "tau_225ghz": 0.033, "wind_ms": 8.4, "temp_c": -6.2, "source": "live" },
+  "system":    { "band": 6, "freq_ghz": 230, "obs_mode": "interferometry", "fault_count": 2 },
+  "atmosphere":{ "pwv_mm": 0.52, "tau_225ghz": 0.033, "wind_ms": 8.4, "temp_c": -6.2, "weather_source": "live" },
   "alma":      { "dishes": [...], "online_count": 63, "total_count": 64, "avg_tsys_k": 80.5 },
   "pointing_mode": "tracking",
-  "scheduler": { "active": { "target": "Sgr A*", "progress": 0.42 }, "queue_length": 3 }
+  "scheduler": { "active": { "target_name": "Sgr A*", "progress_pct": 42.0 }, "stats": { "queued": 3 } }
 }
 ```
 
@@ -288,7 +292,9 @@ Full interactive documentation is available at `http://localhost:8000/docs` (Swa
 { "type": "stow" }
 { "type": "set_band",     "band": 7 }
 { "type": "set_mode",     "mode": "vlbi" }
-{ "type": "inject_fault", "dish_id": "B005", "offline": true }
+{ "type": "inject_fault", "dishId": "B005", "offline": true }
+{ "type": "clear_fault",  "dishId": "B005" }
+{ "type": "emergency_stop" }
 ```
 
 ---
@@ -331,15 +337,13 @@ All 10 ALMA bands (B1–B10) are selectable in the control panel.
 
 ### Near-term
 
-- [ ] **WebSocket auth** — extend JWT validation to the `/ws/telemetry` endpoint (currently open)
-- [ ] **RBAC enforcement on scheduler write ops** — complete role guard for `DELETE /api/scheduler/jobs/{id}` and `POST /api/scheduler/skip` (operator+ only)
 - [ ] **Source catalogue integration** — searchable catalogue (Simbad/NED API) for target selection by name
 - [ ] **Observation sensitivity calculator** — estimate RMS noise as a function of bandwidth, integration time, Tsys, and number of antennas
+- [ ] **seed.py schema sync** — update `influx/seed.py` to match current WebSocket frame fields (e.g. `scheduler` block)
 
 ### Medium-term
 
 - [ ] **Multi-array mode** — toggle between ALMA, APEX, and EHT node displays
-- [ ] **seed.py schema sync** — update `influx/seed.py` to match current WebSocket frame fields (e.g. `scheduler` block)
 
 ### Long-term
 
@@ -352,73 +356,117 @@ All 10 ALMA bands (B1–B10) are selectable in the control panel.
 ## Project Structure
 
 ```
-ATMOS/
-├── server/
-│   ├── main.py                   FastAPI application + REST routes
-│   ├── auth.py                   JWT authentication + RBAC (4 roles)
-│   ├── influx_writer.py          InfluxDB batch writer (lazy init, auto-disable)
-│   ├── requirements.txt
-│   └── app/
-│       ├── scheduler.py          Observation scheduling queue + async tick engine
-│       ├── models/
-│       │   ├── telescope.py      Pydantic data models
-│       │   └── telemetry.py      ConnectionPool (WebSocket manager)
-│       ├── simulation/
-│       │   ├── alma_sim.py       Simulation engine + snapshot builder
-│       │   ├── alma_positions.py Real ALMA C43-5 pad coordinates (ENU)
-│       │   ├── physics_models.py Tsys, airmass, signal computations
-│       │   ├── pointing_sim.py   Slew/track motion controller
-│       │   ├── atmosphere_sim.py Fallback atmospheric simulation
-│       │   └── weather_fetcher.py Open-Meteo API client + PWV derivation
-│       ├── ws/
-│       │   ├── telemetry.py      WebSocket endpoint + command dispatch + scheduler/influx wiring
-│       │   └── events.py         Event type constants
-│       └── api/
-│           ├── telescopes.py     REST: antenna listing
-│           ├── atmosphere.py     REST: meteorological data
-│           ├── control.py        REST: slew / stow / band / fault
-│           └── scheduler.py      REST: job CRUD + skip
-├── client/src/
-│   ├── App.jsx                   Root layout + login gate + role badge + SCHED tab
-│   ├── hooks/
-│   │   ├── useWebSocket.js       WebSocket connection hook
-│   │   └── useTelemetry.js       Snapshot → store → alert pipeline
-│   ├── store/
-│   │   ├── telemetryStore.js     Zustand: live snapshot + 2-min history
-│   │   ├── alertStore.js         Zustand: alert queue (max 300 events)
-│   │   ├── alertEngine.js        Rule-based alert detection
-│   │   ├── telescopeStore.js     Zustand: dish selection + filter state
-│   │   └── auth.js               Authentication state + demo mode local fallback
-│   ├── components/
-│   │   ├── Dashboard.jsx         System status overview panel
-│   │   ├── TelescopePanel.jsx    Scrollable antenna list
-│   │   ├── ControlPanel.jsx      SCADA control interface
-│   │   ├── TelemetryGraphs.jsx   Live sparkline graphs
-│   │   ├── AlertFeed.jsx         Event log with severity triage
-│   │   ├── SchedulerPanel.jsx    Observation queue UI + history log
-│   │   ├── UVCoveragePlot.jsx    UV-plane visualisation (interferometry)
-│   │   └── BaselineCorrelator.jsx Visibility matrix + RFI flagging
-│   ├── three/
-│   │   ├── Scene.jsx             Three.js canvas
-│   │   ├── DishMesh.jsx          Antenna 3D model (Az/El animation)
-│   │   ├── SkyDome.jsx           Night sky + sidereal star rotation
-│   │   └── TerrainMesh.jsx       Atacama plateau terrain
-│   ├── pages/
-│   │   ├── LoginPage.jsx         Terminal-aesthetic auth screen (CRT + amber prompt)
-│   │   └── Config.jsx            Settings page
-│   └── libs/
-│       └── resilientWS.js        WebSocket: backoff, buffer, gap detect
+ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
+├── client/
+│   ├── public/
+│   │   ├── favicon.svg
+│   │   └── icons.svg
+│   ├── src/
+│   │   ├── assets/
+│   │   │   ├── hero.png
+│   │   │   ├── react.svg
+│   │   │   └── vite.svg
+│   │   ├── components/
+│   │   │   ├── AlertFeed.jsx             Event log with severity triage
+│   │   │   ├── BaselineCorrelator.jsx    N×N visibility matrix + MAD RFI flagging
+│   │   │   ├── ControlPanel.jsx          SCADA control interface (slew, band, mode, fault)
+│   │   │   ├── Dashboard.jsx             System status overview panel
+│   │   │   ├── SchedulerPanel.jsx        Observation queue UI + history log
+│   │   │   ├── TelemetryGraphs.jsx       Live sparkline graphs (Tsys, PWV, wind, τ)
+│   │   │   ├── TelescopePanel.jsx        Scrollable antenna list with filter/sort
+│   │   │   └── UVCoveragePlot.jsx        UV-plane visualisation (ENU→UVW, HA sweep)
+│   │   ├── hooks/
+│   │   │   ├── useTelemetry.js           Snapshot → store → alert pipeline
+│   │   │   └── useWebSocket.js           WebSocket connection hook
+│   │   ├── libs/
+│   │   │   └── resilientWS.js            Production WS client: backoff, IndexedDB buffer, gap detect, RTT
+│   │   ├── pages/
+│   │   │   ├── Config.jsx                Settings / configuration page
+│   │   │   ├── LoginPage.jsx             Terminal-aesthetic auth screen (CRT scanlines, amber prompt)
+│   │   │   └── Main.jsx                  Main entry page
+│   │   ├── store/
+│   │   │   ├── alertEngine.js            Rule-based alert detection (Tsys, wind, PWV, dish state)
+│   │   │   ├── alertStore.js             Zustand: alert queue (max 300 events)
+│   │   │   ├── auth.js                   Auth state + JWT refresh timer + demo mode fallback
+│   │   │   ├── telemetryStore.js         Zustand: live snapshot + 2-min rolling history
+│   │   │   └── telescopeStore.js         Zustand: dish selection + filter/sort state
+│   │   ├── three/
+│   │   │   ├── DishMesh.jsx              Antenna 3D model with real-time Az/El animation
+│   │   │   ├── Scene.jsx                 Three.js canvas + camera + lighting
+│   │   │   ├── SkyDome.jsx               Night sky hemisphere + sidereal star rotation
+│   │   │   └── TerrainMesh.jsx           Atacama plateau terrain mesh
+│   │   ├── App.css
+│   │   ├── App.jsx                       Root layout + login gate + role badge + tab navigation
+│   │   ├── index.css
+│   │   └── main.jsx                      Vite entry point
+│   ├── .gitignore
+│   ├── Dockerfile
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   └── vite.config.js
 ├── docker/
-│   ├── docker-compose.yml        Full production stack
-│   ├── Dockerfile.server         FastAPI container (multi-stage)
-│   └── Dockerfile.client         Nginx + Vite build container
+│   ├── grafana/
+│   │   ├── dashboards/
+│   │   │   ├── atmos_array_health.json   Array health Grafana dashboard
+│   │   │   ├── atmos_overview.json       System overview Grafana dashboard
+│   │   │   ├── atmos_pwv_history.json    PWV history Grafana dashboard
+│   │   │   └── atmos_tsys_trends.json    Tsys trends Grafana dashboard
+│   │   └── provisioning/
+│   │       ├── dashboards/
+│   │       │   └── atmos.yml
+│   │       └── datasources/
+│   │           └── influxdb.yml
+│   ├── docker-compose.yml                Full production stack (API + Nginx + InfluxDB + Grafana)
+│   ├── Dockerfile.client                 Nginx + Vite build container
+│   └── Dockerfile.server                 FastAPI container (multi-stage Python build)
+├── docs/
+│   └── pictures/
+│       └── ATMOS_Dashboard.png
 ├── influx/
-│   ├── schema.flux               Flux query examples for InfluxDB
-│   └── seed.py                   Seed 24 h of historical telemetry
-├── ARCHITECTURE.md               Detailed system architecture
-├── TELESCOPE_DATA.md             Physical parameters and reference data
-└── .env.example                  Environment variable template
+│   ├── schema.flux                       Flux query examples for InfluxDB dashboards
+│   └── seed.py                           Seed 24 h of historical telemetry data
+├── server/
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   ├── atmosphere.py             GET /api/atmosphere/ — meteorological data (viewer+)
+│   │   │   ├── control.py                POST /api/control/{slew,stow,band,mode,fault} (operator+/engineer+)
+│   │   │   ├── scheduler.py              REST scheduler CRUD: enqueue, remove, move, skip (operator+)
+│   │   │   └── telescopes.py             GET /api/telescopes/ — antenna listing (viewer+)
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── connection_pool.py              ConnectionPool — WebSocket connection manager + broadcast
+│   │   │   └── telescope.py              Pydantic data models for antenna state
+│   │   ├── simulation/
+│   │   │   ├── __init__.py
+│   │   │   ├── alma_positions.py         Real ALMA C43-5 pad coordinates (ENU metres)
+│   │   │   ├── alma_sim.py               Simulation engine + system snapshot builder
+│   │   │   ├── atmosphere_sim.py         Fallback atmospheric simulation (diurnal cycle)
+│   │   │   ├── physics_models.py         Tsys, airmass, DishPointing, signal computations (ALMA spec)
+│   │   │   ├── pointing_sim.py           Global pointing controller (slew/track, 3°/s az, 1.5°/s el)
+│   │   │   └── weather_fetcher.py        Open-Meteo API client + PWV/τ derivation (5-min cache)
+│   │   ├── ws/
+│   │   │   ├── __init__.py
+│   │   │   ├── events.py                 WebSocket event type constants
+│   │   │   └── telemetry.py              WebSocket endpoint + command dispatch + scheduler/influx wiring
+│   │   ├── __init__.py
+│   │   └── obs_queue.py                  Observation scheduling queue + async tick engine (singleton)
+│   ├── auth.py                           JWT authentication + RBAC (4 roles: viewer/operator/engineer/admin)
+│   ├── Dockerfile
+│   ├── influx_writer.py                  InfluxDB async batch writer (lazy init, auto-disable, persistent client)
+│   ├── main.py                           FastAPI application + WebSocket endpoint + legacy REST shims
+│   └── requirements.txt
+├── .env.example                          Environment variable template
+├── .gitignore
+├── ARCHITECTURE.md                       Detailed system architecture and design decisions
+├── LICENSE
+├── README.md
+└── TELESCOPE_DATA.md                     Physical parameters and reference data for all simulated facilities
 ```
+
+> **Note — duplicate scheduler logic:** `server/main.py` contains inline scheduler endpoints (`/api/scheduler/...`) alongside `server/app/api/scheduler.py` which implements the same routes as a proper FastAPI router with full RBAC. The inline routes in `main.py` are legacy shims kept for compatibility. The canonical implementation is `app/api/scheduler.py` — `main.py` should be updated to `app.include_router(scheduler_api.router)` and the inline duplicates removed.
 
 ---
 

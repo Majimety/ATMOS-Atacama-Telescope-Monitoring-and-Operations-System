@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.ws.telemetry import telemetry_endpoint, pool
-from app.scheduler import scheduler, ObservationJob, JobPriority
+from server.app.obs_queue import scheduler, ObservationJob, JobPriority
 from app.simulation.alma_sim import cmd_inject_fault, cmd_set_band, cmd_set_mode
 from app.simulation.pointing_sim import controller
 from app.api import atmosphere, telescopes, control as control_api
