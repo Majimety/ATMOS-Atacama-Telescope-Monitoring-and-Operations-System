@@ -11,7 +11,7 @@ import ControlPanel from "./components/ControlPanel";
 import SchedulerPanel from "./components/SchedulerPanel";
 import LoginPage from "./pages/LoginPage";
 
-  // ── Auth ──────────────────────────────────────────────────────────────────// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function TabBtn({ active, onClick, children, badge }) {
   return (
@@ -56,7 +56,6 @@ function TabBtn({ active, onClick, children, badge }) {
   );
 }
 
-// Compact stat block used in header
 function Stat({ label, value, sub, color, onClick }) {
   return (
     <div
@@ -85,7 +84,6 @@ function Stat({ label, value, sub, color, onClick }) {
   );
 }
 
-// Mini dish card in bottom bar
 function DishCard({ dish, selected, hasCrit, onSelect, alerts }) {
   const bg = selected
     ? "#0d2030"
@@ -99,7 +97,6 @@ function DishCard({ dish, selected, hasCrit, onSelect, alerts }) {
     : dish.online ? "#1a2a3a"
     : "#2a1111";
 
-  // Rotate the little dish icon based on azimuth
   const iconRotate = dish.online ? ((dish.az_deg || 0) % 180) - 90 : 0;
 
   return (
@@ -132,7 +129,6 @@ function DishCard({ dish, selected, hasCrit, onSelect, alerts }) {
         e.currentTarget.style.boxShadow = "none";
       }}
     >
-      {/* Mini dish icon — semicircle that rotates */}
       <svg width="20" height="12" viewBox="0 0 20 12" style={{ transform: `rotate(${iconRotate}deg)`, transition: "transform 1s ease", flexShrink: 0 }}>
         <path
           d="M 0 12 A 10 12 0 0 1 20 12 Z"
@@ -141,7 +137,6 @@ function DishCard({ dish, selected, hasCrit, onSelect, alerts }) {
         <line x1="10" y1="12" x2="10" y2="0" stroke={dish.online ? "#5a8899" : "#3a2222"} strokeWidth="1" />
       </svg>
 
-      {/* ID */}
       <div style={{
         fontSize: 8.5,
         color: selected ? "var(--accent-cyan)" : dish.online ? "#7a99aa" : "#5a3333",
@@ -153,7 +148,6 @@ function DishCard({ dish, selected, hasCrit, onSelect, alerts }) {
         {dish.id.replace("DA-", "A").replace("DV-", "V")}
       </div>
 
-      {/* Tsys / status */}
       <div style={{
         fontSize: 8,
         color: !dish.online
@@ -188,7 +182,6 @@ export default function App() {
   const getWsUrl    = useAuthStore((s) => s.wsUrl);
   const [showLogin, setShowLogin] = useState(!isAuth());
 
-  // wsUrl() อ่าน token จาก store โดยตรง และ guard demo token ออกอัตโนมัติ
   const wsUrl = getWsUrl("/ws/telemetry");
 
   const handleMessage = useCallback((data) => {
@@ -198,7 +191,6 @@ export default function App() {
 
   const { send } = useWebSocket(wsUrl, handleMessage);
 
-  // ── Loading screen ──────────────────────────────────────────────────────────
   if (!snapshot) {
     return (
       <div style={{
@@ -231,7 +223,10 @@ export default function App() {
     );
   }
 
-  // ── Derived state ───────────────────────────────────────────────────────────
+  if (showLogin) {
+    return <LoginPage onLogin={() => setShowLogin(false)} />;
+  }
+
   const { alma, atmosphere, commanded_target, system, pointing_mode } = snapshot;
 
   const critCount = alerts.filter((a) => a.severity === "critical" && !a.acked).length;
@@ -249,12 +244,6 @@ export default function App() {
 
   const utcTime = new Date(snapshot.timestamp).toUTCString().slice(17, 25);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
-  // ── Login gate ──────────────────────────────────────────────────────────
-  if (showLogin) {
-    return <LoginPage onLogin={() => setShowLogin(false)} />;
-  }
-
   return (
     <div style={{
       background: "var(--bg-deep)",
@@ -267,9 +256,6 @@ export default function App() {
       overflow: "hidden",
     }}>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          TOP BAR — fixed height 44px, no overflow
-      ══════════════════════════════════════════════════════════════════════ */}
       <div style={{
         display: "flex",
         alignItems: "stretch",
@@ -279,7 +265,6 @@ export default function App() {
         height: 44,
         overflow: "hidden",
       }}>
-        {/* Logo */}
         <div style={{
           padding: "0 18px",
           borderRight: "1px solid var(--border)",
@@ -292,173 +277,65 @@ export default function App() {
           </span>
         </div>
 
-        {/* Mode */}
-        <Stat
-          label="MODE"
-          value={(pointing_mode || "TRACKING").toUpperCase()}
-          color={pointingColor}
-        />
+        <Stat label="MODE" value={(pointing_mode || "TRACKING").toUpperCase()} color={pointingColor} />
+        <Stat label="TARGET" value={commanded_target.name} sub={`Az ${commanded_target.az_deg?.toFixed(1)}° El ${commanded_target.el_deg?.toFixed(1)}°`} color="var(--text-primary)" />
+        <Stat label="ARRAY" value={`${alma.online_count} / ${alma.total_count}`} sub={`Tsys ${alma.avg_tsys_k}K`} color={system?.fault_count > 0 ? "var(--accent-yellow)" : "var(--accent-green)"} />
+        <Stat label="BAND" value={`B${system?.band}`} sub={`${system?.freq_ghz} GHz`} color="var(--accent-teal)" />
+        <Stat label="PWV" value={`${atmosphere.pwv_mm} mm`} color="var(--accent-purple)" />
+        <Stat label="WIND" value={`${atmosphere.wind_ms} m/s`} color={windCrit ? "var(--accent-red)" : windWarn ? "var(--accent-yellow)" : "var(--text-dim)"} />
+        <Stat label="TEMP" value={`${atmosphere.temp_c}°C`} />
 
-        {/* Target */}
-        <Stat
-          label="TARGET"
-          value={commanded_target.name}
-          sub={`Az ${commanded_target.az_deg?.toFixed(1)}° El ${commanded_target.el_deg?.toFixed(1)}°`}
-          color="var(--text-primary)"
-        />
-
-        {/* Array */}
-        <Stat
-          label="ARRAY"
-          value={`${alma.online_count} / ${alma.total_count}`}
-          sub={`Tsys ${alma.avg_tsys_k}K`}
-          color={system?.fault_count > 0 ? "var(--accent-yellow)" : "var(--accent-green)"}
-        />
-
-        {/* Band */}
-        <Stat
-          label="BAND"
-          value={`B${system?.band}`}
-          sub={`${system?.freq_ghz} GHz`}
-          color="var(--accent-teal)"
-        />
-
-        {/* Atmosphere — hidden on small screens via flex shrink */}
-        <Stat
-          label="PWV"
-          value={`${atmosphere.pwv_mm} mm`}
-          color="var(--accent-purple)"
-        />
-
-        <Stat
-          label="WIND"
-          value={`${atmosphere.wind_ms} m/s`}
-          color={windCrit ? "var(--accent-red)" : windWarn ? "var(--accent-yellow)" : "var(--text-dim)"}
-        />
-
-        <Stat
-          label="TEMP"
-          value={`${atmosphere.temp_c}°C`}
-        />
-
-        {/* Alert badges */}
         {(critCount > 0 || warnCount > 0) && (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "0 12px",
-            flexShrink: 0,
-          }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 12px", flexShrink: 0 }}>
             {critCount > 0 && (
-              <button
-                onClick={() => setRightTab("alerts")}
-                style={{
-                  background: "var(--accent-red)",
-                  color: "#fff",
-                  fontSize: 10,
-                  fontWeight: "bold",
-                  padding: "4px 10px",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  border: "none",
-                  fontFamily: "var(--mono)",
-                  animation: "alertpulse 1.4s ease-in-out infinite",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <button onClick={() => setRightTab("alerts")} style={{ background: "var(--accent-red)", color: "#fff", fontSize: 10, fontWeight: "bold", padding: "4px 10px", borderRadius: 10, cursor: "pointer", border: "none", fontFamily: "var(--mono)", animation: "alertpulse 1.4s ease-in-out infinite", whiteSpace: "nowrap" }}>
                 ⚠ {critCount} CRIT
               </button>
             )}
             {warnCount > 0 && (
-              <button
-                onClick={() => setRightTab("alerts")}
-                style={{
-                  background: "#7a5500",
-                  color: "var(--accent-yellow)",
-                  fontSize: 10,
-                  fontWeight: "bold",
-                  padding: "4px 10px",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  border: "1px solid #aa7700",
-                  fontFamily: "var(--mono)",
-                  whiteSpace: "nowrap",
-                }}
-              >
+              <button onClick={() => setRightTab("alerts")} style={{ background: "#7a5500", color: "var(--accent-yellow)", fontSize: 10, fontWeight: "bold", padding: "4px 10px", borderRadius: 10, cursor: "pointer", border: "1px solid #aa7700", fontFamily: "var(--mono)", whiteSpace: "nowrap" }}>
                 ▲ {warnCount}
               </button>
             )}
           </div>
         )}
 
-        {/* Auth user + UTC — pushed to far right */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "stretch", flexShrink: 0 }}>
           {authUser && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "0 12px", borderLeft: "1px solid var(--border)",
-              fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.06em",
-            }}>
-              <span style={{
-                color: { viewer:"#00d4ff", operator:"#00ff88", engineer:"#ffaa00", admin:"#ff6644" }[authUser.role] ?? "#00d4ff",
-                fontWeight: 700,
-              }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 12px", borderLeft: "1px solid var(--border)", fontSize: 10, color: "var(--text-dim)", letterSpacing: "0.06em" }}>
+              <span style={{ color: { viewer:"#00d4ff", operator:"#00ff88", engineer:"#ffaa00", admin:"#ff6644" }[authUser.role] ?? "#00d4ff", fontWeight: 700 }}>
                 {authUser.role.toUpperCase()}
               </span>
               <span style={{ color: "var(--text-faint)" }}>{authUser.username}</span>
               {demoMode && <span style={{ color: "#333", fontSize: 9 }}>DEMO</span>}
-              <button
-                onClick={() => { authLogout(); setShowLogin(true); }}
-                style={{
-                  background: "transparent", border: "1px solid #1a2a3a",
-                  color: "#334455", fontFamily: "monospace", fontSize: 9,
-                  padding: "2px 6px", cursor: "pointer", letterSpacing: "0.05em",
-                }}
-              >
+              <button onClick={() => { authLogout(); setShowLogin(true); }} style={{ background: "transparent", border: "1px solid #1a2a3a", color: "#334455", fontFamily: "monospace", fontSize: 9, padding: "2px 6px", cursor: "pointer", letterSpacing: "0.05em" }}>
                 LOGOUT
               </button>
             </div>
           )}
-          <div style={{
-            padding: "0 16px", borderLeft: "1px solid var(--border)",
-            display: "flex", alignItems: "center",
-            fontSize: 11, color: "var(--text-faint)",
-            fontWeight: "500", letterSpacing: "0.05em",
-          }}>
+          <div style={{ padding: "0 16px", borderLeft: "1px solid var(--border)", display: "flex", alignItems: "center", fontSize: 11, color: "var(--text-faint)", fontWeight: "500", letterSpacing: "0.05em" }}>
             {utcTime} UTC
           </div>
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          MAIN — 3D viewport + right panel
-      ══════════════════════════════════════════════════════════════════════ */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden", minHeight: 0 }}>
 
-        {/* 3D Viewport */}
         <div style={{ flex: 1, overflow: "hidden", position: "relative" }}>
           <Scene selectedId={selectedId} onSelect={setSelectedId} />
 
-          {/* Selected dish overlay */}
           {selectedId && (() => {
             const dish = alma.dishes.find((d) => d.id === selectedId);
             if (!dish) return null;
             return (
               <div style={{
-                position: "absolute",
-                top: 12,
-                left: 12,
+                position: "absolute", top: 12, left: 12,
                 background: "rgba(4,12,20,0.92)",
                 border: "1px solid var(--border-mid)",
                 borderLeft: "3px solid var(--accent-teal)",
-                borderRadius: 4,
-                padding: "10px 14px",
-                fontFamily: "var(--mono)",
-                fontSize: 11,
-                minWidth: 160,
+                borderRadius: 4, padding: "10px 14px",
+                fontFamily: "var(--mono)", fontSize: 11, minWidth: 180,
                 animation: "fadein 0.2s ease",
-                pointerEvents: "none",
               }}>
                 <div style={{ color: "var(--accent-teal)", fontWeight: "bold", marginBottom: 6, fontSize: 12 }}>
                   {dish.id}
@@ -476,28 +353,26 @@ export default function App() {
                     {dish.online ? "ONLINE" : "OFFLINE"}
                   </span>
                 </div>
+                {!dish.online && (
+                  <button
+                    onClick={() => send({ type: "clear_fault", dishId: dish.id })}
+                    style={{
+                      marginTop: 8, width: "100%",
+                      background: "transparent", border: "1px solid var(--accent-green)",
+                      color: "var(--accent-green)", fontFamily: "var(--mono)",
+                      fontSize: 10, padding: "4px 8px", cursor: "pointer", borderRadius: 3,
+                    }}
+                  >
+                    CLEAR FAULT
+                  </button>
+                )}
               </div>
             );
           })()}
         </div>
 
-        {/* Right panel */}
-        <div style={{
-          width: 300,
-          borderLeft: "1px solid var(--border)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          background: "var(--bg-card)",
-          flexShrink: 0,
-        }}>
-          {/* Tabs */}
-          <div style={{
-            display: "flex",
-            borderBottom: "1px solid var(--border)",
-            flexShrink: 0,
-            background: "var(--bg-panel)",
-          }}>
+        <div style={{ width: 300, borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg-card)", flexShrink: 0 }}>
+          <div style={{ display: "flex", borderBottom: "1px solid var(--border)", flexShrink: 0, background: "var(--bg-panel)" }}>
             <TabBtn active={rightTab === "control"}   onClick={() => setRightTab("control")}>CONTROL</TabBtn>
             <TabBtn active={rightTab === "telemetry"} onClick={() => setRightTab("telemetry")}>TELEMETRY</TabBtn>
             <TabBtn active={rightTab === "scheduler"} onClick={() => setRightTab("scheduler")}>SCHED</TabBtn>
@@ -513,33 +388,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          BOTTOM — dish strip, scrollable horizontally
-      ══════════════════════════════════════════════════════════════════════ */}
-      <div style={{
-        height: 70,
-        borderTop: "1px solid var(--border)",
-        background: "var(--bg-panel)",
-        display: "flex",
-        alignItems: "center",
-        gap: 3,
-        padding: "0 10px",
-        flexShrink: 0,
-        overflowX: "auto",
-        overflowY: "hidden",
-      }}>
-        {/* Section label */}
-        <div style={{
-          flexShrink: 0,
-          width: 36,
-          height: 58,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 4,
-          marginRight: 4,
-        }}>
+      <div style={{ height: 70, borderTop: "1px solid var(--border)", background: "var(--bg-panel)", display: "flex", alignItems: "center", gap: 3, padding: "0 10px", flexShrink: 0, overflowX: "auto", overflowY: "hidden" }}>
+        <div style={{ flexShrink: 0, width: 36, height: 58, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, marginRight: 4 }}>
           <div style={{ fontSize: 8, color: "var(--text-faint)", letterSpacing: "0.1em", writingMode: "vertical-rl", transform: "rotate(180deg)" }}>
             ALMA
           </div>
@@ -549,14 +399,7 @@ export default function App() {
         {alma.dishes.map((dish) => {
           const hasCrit = alerts.some((a) => a.dishId === dish.id && a.severity === "critical" && !a.acked);
           return (
-            <DishCard
-              key={dish.id}
-              dish={dish}
-              selected={selectedId}
-              hasCrit={hasCrit}
-              onSelect={setSelectedId}
-              alerts={alerts}
-            />
+            <DishCard key={dish.id} dish={dish} selected={selectedId} hasCrit={hasCrit} onSelect={setSelectedId} alerts={alerts} />
           );
         })}
       </div>

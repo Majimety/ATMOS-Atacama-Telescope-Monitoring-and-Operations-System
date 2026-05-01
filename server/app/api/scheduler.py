@@ -15,7 +15,7 @@ Routes:
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from server.app.obs_queue import scheduler, ObservationJob, JobPriority
+from app.obs_queue import scheduler, ObservationJob, JobPriority
 from auth import require_role, Role, User
 
 router = APIRouter(prefix="/api/scheduler", tags=["scheduler"])

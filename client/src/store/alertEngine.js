@@ -62,7 +62,7 @@ export function detectAlerts(snapshot) {
         });
       }
 
-      if (dish.online && dish.el_deg < THRESHOLDS.el_low_warning) {
+      if (dish.el_deg < THRESHOLDS.el_low_warning) {
         alerts.push({
           severity: "warning",
           type: "low_elevation",
@@ -74,7 +74,6 @@ export function detectAlerts(snapshot) {
     }
   }
 
-  // Wind
   const windLevel =
     atmosphere.wind_ms >= THRESHOLDS.wind_danger_ms ? "danger" :
     atmosphere.wind_ms >= THRESHOLDS.wind_warning_ms ? "warning" : "ok";
@@ -96,7 +95,6 @@ export function detectAlerts(snapshot) {
   }
   prevWindLevel = windLevel;
 
-  // PWV
   const pwvLevel = atmosphere.pwv_mm >= THRESHOLDS.pwv_warning_mm ? "high" : "ok";
   if (pwvLevel === "high" && prevPwvLevel === "ok") {
     alerts.push({
@@ -108,7 +106,6 @@ export function detectAlerts(snapshot) {
   }
   prevPwvLevel = pwvLevel;
 
-  // Fault count spike
   if (snapshot.system?.fault_count > 5) {
     alerts.push({
       severity: "critical",

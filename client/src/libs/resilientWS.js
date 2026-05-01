@@ -1,39 +1,19 @@
 /**
  * resilientWS.js  —  Production WebSocket client for ATMOS telemetry
- * ==================================================================
- *
- * Features:
- *   - Exponential backoff reconnection (1s → 2s → 4s → … → 60s cap)
- *   - Offline telemetry buffer (IndexedDB, configurable size)
- *   - Data gap detection & annotation
- *   - Heartbeat / ping-pong keepalive
- *   - Auth token injection (integrates with auth.js store)
- *   - Zustand store slice with connection status
- *   - Network quality scoring (jitter, latency)
- *
- * Usage in ATMOS:
- *   // Replace the raw WebSocket in main.py client handler with:
- *   import { createTelemetrySocket, useTelemetryStore } from './resilientWS';
- *
- *   // In App.jsx useEffect:
- *   const socket = createTelemetrySocket();
- *   socket.connect();
- *   return () => socket.disconnect();
  */
 
 import { create } from "zustand";
+import { useAuthStore } from "./auth";
 
-// ─── Constants ────────────────────────────────────────────────────────────
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 60_000;
 const RECONNECT_JITTER_MS = 500;
 const HEARTBEAT_INTERVAL_MS = 10_000;
 const HEARTBEAT_TIMEOUT_MS = 5_000;
-const BUFFER_MAX_FRAMES = 500;         // Max telemetry frames stored offline
-const GAP_THRESHOLD_MS = 3_000;        // Missing data > 3s = annotated gap
-const NETWORK_WINDOW = 20;             // Samples for rolling latency average
+const BUFFER_MAX_FRAMES = 500;
+const GAP_THRESHOLD_MS = 3_000;
+const NETWORK_WINDOW = 20;
 
-// ─── IndexedDB buffer ─────────────────────────────────────────────────────
 const DB_NAME = "atmos-telemetry-buffer";
 const STORE_NAME = "frames";
 
@@ -57,7 +37,6 @@ async function bufferFrame(db, frame) {
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
     store.put(frame);
-    // Evict oldest if over limit
     const countReq = store.count();
     countReq.onsuccess = () => {
       if (countReq.result > BUFFER_MAX_FRAMES) {
@@ -87,29 +66,20 @@ async function drainBuffer(db, onFrame) {
   });
 }
 
-// ─── Zustand connection status store ──────────────────────────────────────
-export const useTelemetryStore = create((set, get) => ({
-  // Connection
-  status: "disconnected",     // "connecting" | "connected" | "reconnecting" | "disconnected"
+export const useResilientWSStore = create((set) => ({
+  status: "disconnected",
   reconnectAttempt: 0,
-  nextReconnectIn: null,      // seconds
+  nextReconnectIn: null,
   lastConnectedAt: null,
   lastFrameAt: null,
-
-  // Quality
   latencyMs: null,
   jitterMs: null,
-  frameRate: null,            // frames/sec (rolling)
-  networkScore: null,         // 0–100
-
-  // Gaps
-  gaps: [],                   // [{start, end, durationMs}]
+  frameRate: null,
+  networkScore: null,
+  gaps: [],
   bufferedFrames: 0,
-
-  // Telemetry (latest snapshot — same shape as existing ATMOS store)
   telemetry: null,
 
-  // Actions (set by ResilientWebSocket instance)
   _setStatus: (status, extra = {}) => set({ status, ...extra }),
   _setTelemetry: (data) => set({ telemetry: data, lastFrameAt: Date.now() }),
   _addGap: (gap) => set((s) => ({ gaps: [gap, ...s.gaps].slice(0, 50) })),
@@ -117,13 +87,8 @@ export const useTelemetryStore = create((set, get) => ({
   _setBuffered: (n) => set({ bufferedFrames: n }),
 }));
 
-// ─── ResilientWebSocket class ─────────────────────────────────────────────
 export class ResilientWebSocket {
   constructor(urlFactory, options = {}) {
-    /**
-     * urlFactory: () => string  — called each connect to inject fresh auth token
-     * options: { onMessage, onStatusChange, bufferOffline }
-     */
     this.urlFactory = urlFactory;
     this.opts = { bufferOffline: true, ...options };
 
@@ -134,16 +99,12 @@ export class ResilientWebSocket {
     this.heartbeatTimer = null;
     this.heartbeatTimeoutTimer = null;
     this.lastFrameTs = null;
-    this.gapStart = null;
     this.frameTimestamps = [];
     this.latencySamples = [];
     this._pingTs = null;
     this._active = false;
-
-    this.store = useTelemetryStore.getState();
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────
   async connect() {
     this._active = true;
     if (this.opts.bufferOffline) {
@@ -157,7 +118,7 @@ export class ResilientWebSocket {
     this._clearTimers();
     this.ws?.close(1000, "client disconnect");
     this.ws = null;
-    useTelemetryStore.getState()._setStatus("disconnected");
+    useResilientWSStore.getState()._setStatus("disconnected");
   }
 
   send(data) {
@@ -168,48 +129,46 @@ export class ResilientWebSocket {
     return false;
   }
 
-  // ── Internal ────────────────────────────────────────────────────────────
   _doConnect() {
     if (!this._active) return;
     const url = this.urlFactory();
 
-    useTelemetryStore.getState()._setStatus(
+    useResilientWSStore.getState()._setStatus(
       this.reconnectAttempt === 0 ? "connecting" : "reconnecting",
       { reconnectAttempt: this.reconnectAttempt }
     );
 
     try {
       this.ws = new WebSocket(url);
-    } catch (e) {
+    } catch {
       this._scheduleReconnect();
       return;
     }
 
     this.ws.onopen = () => this._onOpen();
     this.ws.onmessage = (ev) => this._onMessage(ev);
-    this.ws.onclose = (ev) => this._onClose(ev);
-    this.ws.onerror = () => {}; // onclose fires after onerror
+    this.ws.onclose = () => this._onClose();
+    this.ws.onerror = () => {};
   }
 
   async _onOpen() {
     this.reconnectAttempt = 0;
     this._clearTimers();
 
-    useTelemetryStore.getState()._setStatus("connected", {
+    useResilientWSStore.getState()._setStatus("connected", {
       lastConnectedAt: Date.now(),
       reconnectAttempt: 0,
       nextReconnectIn: null,
     });
 
-    // Drain offline buffer
     if (this.db) {
       let count = 0;
       await drainBuffer(this.db, (frame) => {
-        this._processFrame(frame, true); // buffered=true
+        this._processFrame(frame, true);
         count++;
       });
       if (count) console.log(`[ATMOS WS] Replayed ${count} buffered frames`);
-      useTelemetryStore.getState()._setBuffered(0);
+      useResilientWSStore.getState()._setBuffered(0);
     }
 
     this._startHeartbeat();
@@ -218,7 +177,6 @@ export class ResilientWebSocket {
   async _onMessage(ev) {
     const now = Date.now();
 
-    // Heartbeat pong
     if (ev.data === "pong") {
       clearTimeout(this.heartbeatTimeoutTimer);
       const latency = now - this._pingTs;
@@ -233,12 +191,10 @@ export class ResilientWebSocket {
       return;
     }
 
-    // Gap detection
     if (this.lastFrameTs) {
       const gap = now - this.lastFrameTs;
-      if (gap > GAP_THRESHOLD_MS && !this.gapStart) {
-        // We just recovered from a gap — record it
-        useTelemetryStore.getState()._addGap({
+      if (gap > GAP_THRESHOLD_MS) {
+        useResilientWSStore.getState()._addGap({
           start: this.lastFrameTs,
           end: now,
           durationMs: gap,
@@ -248,28 +204,23 @@ export class ResilientWebSocket {
     }
     this.lastFrameTs = now;
 
-    // Frame rate calculation
     this.frameTimestamps.push(now);
     if (this.frameTimestamps.length > 30) this.frameTimestamps.shift();
     const fps = this._calcFPS();
 
     this._processFrame(frame);
-    useTelemetryStore.getState()._setQuality({ frameRate: fps });
+    useResilientWSStore.getState()._setQuality({ frameRate: fps });
   }
 
   _processFrame(frame, isBuffered = false) {
     if (this.opts.onMessage) this.opts.onMessage(frame, isBuffered);
-    useTelemetryStore.getState()._setTelemetry(frame);
+    useResilientWSStore.getState()._setTelemetry(frame);
   }
 
-  _onClose(ev) {
+  _onClose() {
     this._clearTimers();
     if (!this._active) return;
-
-    useTelemetryStore.getState()._setStatus("reconnecting");
-
-    // Buffer incoming data offline while disconnected (if navigator.onLine)
-    // Real impl: queue commands in localStorage until reconnect
+    useResilientWSStore.getState()._setStatus("reconnecting");
     this._scheduleReconnect();
   }
 
@@ -282,17 +233,16 @@ export class ResilientWebSocket {
     );
     this.reconnectAttempt++;
 
-    useTelemetryStore.getState()._setStatus("reconnecting", {
+    useResilientWSStore.getState()._setStatus("reconnecting", {
       nextReconnectIn: Math.round(delay / 1000),
       reconnectAttempt: this.reconnectAttempt,
     });
 
-    // Countdown display
     let remaining = Math.round(delay / 1000);
     const countdown = setInterval(() => {
       remaining--;
       if (remaining > 0) {
-        useTelemetryStore.getState()._setStatus("reconnecting", {
+        useResilientWSStore.getState()._setStatus("reconnecting", {
           nextReconnectIn: remaining,
         });
       }
@@ -330,7 +280,7 @@ export class ResilientWebSocket {
       this.latencySamples.reduce((s, v) => s + (v - avg) ** 2, 0) / this.latencySamples.length
     );
     const score = Math.max(0, Math.min(100, 100 - avg * 0.5 - jitter * 2));
-    useTelemetryStore.getState()._setQuality({
+    useResilientWSStore.getState()._setQuality({
       latencyMs: Math.round(avg),
       jitterMs: Math.round(jitter),
       networkScore: Math.round(score),
@@ -346,25 +296,17 @@ export class ResilientWebSocket {
   }
 }
 
-// ─── Factory (integrates with auth.js) ───────────────────────────────────
 export function createTelemetrySocket(path = "/ws/telemetry") {
-  // Import auth store lazily to avoid circular deps
   const getWsUrl = () => {
-    try {
-      const { wsUrl } = require("./auth").useAuthStore.getState();
-      return wsUrl(path);
-    } catch {
-      const base = (import.meta.env.VITE_WS_URL ?? "ws://localhost:8000");
-      return `${base}${path}`;
-    }
+    const { wsUrl } = useAuthStore.getState();
+    return wsUrl(path);
   };
   return new ResilientWebSocket(getWsUrl);
 }
 
-// ─── Status bar React component ────────────────────────────────────────────
 export function ConnectionStatusBar() {
   const { status, reconnectAttempt, nextReconnectIn, latencyMs,
-          networkScore, frameRate, gaps, bufferedFrames } = useTelemetryStore();
+          networkScore, frameRate, gaps, bufferedFrames } = useResilientWSStore();
 
   const colors = {
     connected: "#60d080",
