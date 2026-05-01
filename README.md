@@ -466,7 +466,137 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 └── TELESCOPE_DATA.md                     Physical parameters and reference data for all simulated facilities
 ```
 
-> **Note — duplicate scheduler logic:** `server/main.py` contains inline scheduler endpoints (`/api/scheduler/...`) alongside `server/app/api/scheduler.py` which implements the same routes as a proper FastAPI router with full RBAC. The inline routes in `main.py` are legacy shims kept for compatibility. The canonical implementation is `app/api/scheduler.py` — `main.py` should be updated to `app.include_router(scheduler_api.router)` and the inline duplicates removed.
+---
+
+## Source Code Reference
+
+The following section provides a structured list of all source files in this project.  
+Click to expand and view direct access links to each file.
+
+<details>
+  <summary><b>View Full Source Code List</b></summary>
+
+---
+
+### Backend (FastAPI)
+
+**Core**
+- main.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/main.py  
+- auth.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/auth.py  
+- influx_writer.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/influx_writer.py  
+- requirements.txt  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/requirements.txt  
+- Dockerfile  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/Dockerfile  
+
+**Models**
+- telescope.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/models/telescope.py  
+- connection_pool.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/models/connection_pool.py  
+
+**Simulation**
+- alma_sim.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/alma_sim.py  
+- alma_positions.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/alma_positions.py  
+- physics_models.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/physics_models.py  
+- pointing_sim.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/pointing_sim.py  
+- atmosphere_sim.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/atmosphere_sim.py  
+- weather_fetcher.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/weather_fetcher.py  
+
+**WebSocket**
+- telemetry.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/telemetry.py  
+- events.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/events.py  
+
+**API**
+- telescopes.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/api/telescopes.py  
+- atmosphere.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/api/atmosphere.py  
+- control.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/api/control.py  
+- scheduler.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/api/scheduler.py  
+
+**Initialization & Core Modules**
+- app/__init__.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/__init__.py  
+- obs_queue.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/obs_queue.py  
+
+---
+
+### Frontend (React + Vite)
+
+**Core**
+- package.json  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/package.json  
+- main.jsx  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/main.jsx  
+- App.jsx  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/App.jsx  
+
+**Hooks**
+- useWebSocket.js  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/hooks/useWebSocket.js  
+- useTelemetry.js  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/hooks/useTelemetry.js  
+
+**State Management**
+- telemetryStore.js  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/store/telemetryStore.js  
+- alertStore.js  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/store/alertStore.js  
+- alertEngine.js  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/store/alertEngine.js  
+- telescopeStore.js  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/store/telescopeStore.js  
+- auth.js  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/store/auth.js  
+
+**Components**
+- Dashboard.jsx  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/components/Dashboard.jsx  
+- TelescopePanel.jsx  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/components/TelescopePanel.jsx  
+- ControlPanel.jsx  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/client/src/components/ControlPanel.jsx  
+
+---
+
+### Infrastructure & Deployment
+
+- docker-compose.yml  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/docker/docker-compose.yml  
+- Dockerfile.server  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/docker/Dockerfile.server  
+- Dockerfile.client  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/docker/Dockerfile.client  
+
+---
+
+### Documentation
+
+- ARCHITECTURE.md  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/ARCHITECTURE.md  
+- TELESCOPE_DATA.md  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/TELESCOPE_DATA.md  
+- README.md  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/README.md  
+
+---
+
+</details>
 
 ---
 
