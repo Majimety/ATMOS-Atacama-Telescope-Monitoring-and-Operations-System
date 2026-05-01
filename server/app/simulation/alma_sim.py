@@ -12,6 +12,7 @@ Physical models:
   6. PWV ← RH, T, P                        — Clausius-Clapeyron + hydrostatics
   7. Slew rate 3°/s az / 1.5°/s el         — ALMA TRE spec จริง
   8. Tracking error < 0.6 arcsec RMS       — ALMA pointing spec จริง
+
 """
 
 import asyncio
@@ -21,7 +22,12 @@ import time
 from datetime import datetime, timezone
 
 from .alma_positions import ALMA_REAL_PADS, CHAJNANTOR_TELESCOPES
-from .weather_fetcher import fetch_chajnantor_weather, WeatherData
+from .weather_fetcher import (
+    fetch_chajnantor_weather,
+    WeatherData,
+    derive_pwv_from_meteo,
+    derive_tau_from_pwv,
+)
 from .physics_models import (
     compute_tsys,
     compute_signal_level_dbm,
@@ -304,8 +310,6 @@ async def get_system_snapshot() -> dict:
 
 def _get_fallback_weather() -> WeatherData:
     """สำรองสุดท้าย ถ้า fetch ไม่ได้เลย"""
-    from weather_fetcher import WeatherData, derive_pwv_from_meteo, derive_tau_from_pwv
-
     pwv = derive_pwv_from_meteo(-8.0, 3.5, 542.0)
     return WeatherData(
         temperature_c=-8.0,
