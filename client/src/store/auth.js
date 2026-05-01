@@ -5,11 +5,6 @@
  *   1. Real mode  — calls FastAPI /auth/token endpoint (JWT)
  *   2. Demo mode  — validates against hardcoded demo accounts locally
  *
- * Demo accounts (match server/auth.py _DEMO_USERS):
- *   viewer   / viewer123   → read-only
- *   operator / operator123 → control
- *   admin    / admin123    → full access
- *
  * Auto-refresh:
  *   - refresh ทำงานล่วงหน้า 2 นาทีก่อน token หมดอายุ
  *   - ถ้า refresh ล้มเหลว → logout อัตโนมัติ
@@ -53,10 +48,11 @@ export function hasRole(userRole, minimumRole) {
   return (ROLE_RANK[userRole] ?? -1) >= (ROLE_RANK[minimumRole] ?? 99);
 }
 
-// ── Demo accounts ──────────────────────────────────────────────────────────
+// ── Demo accounts — ต้องตรงกับ server/auth.py _DEMO_USERS ────────────────
 const DEMO_USERS = {
-  viewer:   { username: "viewer",   role: "viewer",   full_name: "Read-Only User",       password: "viewer123" },
-  operator: { username: "operator", role: "operator", full_name: "Observatory Operator",  password: "operator123" },
+  viewer:   { username: "viewer",   role: "viewer",   full_name: "Observation Viewer",   password: "viewer123" },
+  operator: { username: "operator", role: "operator", full_name: "Array Operator",        password: "operator123" },
+  engineer: { username: "engineer", role: "engineer", full_name: "Systems Engineer",      password: "engineer123" },
   admin:    { username: "admin",    role: "admin",    full_name: "System Administrator",  password: "admin123" },
 };
 

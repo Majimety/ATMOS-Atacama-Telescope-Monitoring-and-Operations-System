@@ -70,6 +70,10 @@ pool = ConnectionPool()
 async def telemetry_endpoint(ws: WebSocket):
     """
     WebSocket endpoint — ws://localhost:8000/ws/telemetry
+
+    Authentication is handled upstream in main.py via ws_authenticate()
+    before this function is called. Do NOT call ws_authenticate() again here.
+
     Per-tick pipeline:
       1. Build snapshot (async — fetches live weather if available)
       2. Advance scheduler (checks constraints, starts/completes jobs)

@@ -309,7 +309,6 @@ async def get_system_snapshot() -> dict:
 
 
 def _get_fallback_weather() -> WeatherData:
-    """สำรองสุดท้าย ถ้า fetch ไม่ได้เลย"""
     pwv = derive_pwv_from_meteo(-8.0, 3.5, 542.0)
     return WeatherData(
         temperature_c=-8.0,
