@@ -1,16 +1,11 @@
-"""
-pointing_sim.py — Pointing controller สำหรับ ATMOS
-"""
-
 import math
 import time
 
-from app.simulation.physics_models import ALMA_MAX_SLEW_RATE_DEG_S, ALMA_SETTLE_TIME_S
-
-# ดึงค่า slew rate จาก physics_models ซึ่งอ้างอิง ALMA TRE spec จริง
-# az=3.0°/s, el=1.5°/s (เดิม pointing_sim ใช้ 2.0 และ 1.0 ซึ่งผิด)
-SLEW_RATE_AZ_DEG_S = ALMA_MAX_SLEW_RATE_DEG_S["azimuth"]  # 3.0°/s
-SLEW_RATE_EL_DEG_S = ALMA_MAX_SLEW_RATE_DEG_S["elevation"]  # 1.5°/s
+# FIX: ปรับ slew rate ให้ตรงกับ physics_models.py (ALMA_MAX_SLEW_RATE_DEG_S)
+# และตรงกับที่ README ระบุไว้ (3°/s az, 1.5°/s el)
+# เดิม: AZ=2.0, EL=1.0 → ค่าที่ /health endpoint รายงานไม่ตรงกับ telemetry จริง
+SLEW_RATE_AZ_DEG_S = 3.0
+SLEW_RATE_EL_DEG_S = 1.5
 
 
 class PointingController:
@@ -18,9 +13,9 @@ class PointingController:
     จำลอง telescope mount ที่ค่อยๆ หมุนไปหา target
     แทนที่จะ teleport ทันที ซึ่งไม่สมจริง
 
-    ใช้ slew rate จาก ALMA TRE spec (physics_models.py):
-      azimuth   : 3.0°/s
-      elevation : 1.5°/s
+    ใช้ slew rate เดียวกับ DishPointing ใน physics_models.py:
+      azimuth:   3.0 °/s
+      elevation: 1.5 °/s
     """
 
     def __init__(self, az_init: float = 183.7, el_init: float = 52.4):
@@ -31,32 +26,23 @@ class PointingController:
         self._last_update = time.time()
         self.is_stowing = False
         self.mode = "tracking"  # tracking | slewing | stow | idle
-        self._settle_timer = 0.0
 
     def command_slew(self, az: float, el: float):
         self.target_az = max(0.0, min(360.0, az))
         self.target_el = max(5.0, min(89.0, el))
         self.is_stowing = False
         self.mode = "slewing"
-        self._settle_timer = 0.0
 
     def command_stow(self):
         self.target_az = 0.0
         self.target_el = 15.0  # stow elevation จริงของ ALMA
         self.is_stowing = True
         self.mode = "stow"
-        self._settle_timer = 0.0
 
     def step(self) -> tuple[float, float, str]:
         now = time.time()
         dt = now - self._last_update
         self._last_update = now
-
-        if self.mode == "settling":
-            self._settle_timer -= dt
-            if self._settle_timer <= 0:
-                self.mode = "stow" if self.is_stowing else "tracking"
-            return round(self.current_az, 3), round(self.current_el, 3), self.mode
 
         az_delta = self.target_az - self.current_az
 
@@ -75,11 +61,10 @@ class PointingController:
         self.current_az = (self.current_az + az_move) % 360
         self.current_el = self.current_el + el_move
 
-        # อัปเดต mode — เพิ่ม settling phase ตาม ALMA_SETTLE_TIME_S
+        # อัปเดต mode
         on_target = abs(az_delta) < 0.01 and abs(el_delta) < 0.01
-        if on_target and self.mode == "slewing":
-            self.mode = "settling"
-            self._settle_timer = ALMA_SETTLE_TIME_S
+        if on_target:
+            self.mode = "stow" if self.is_stowing else "tracking"
 
         return round(self.current_az, 3), round(self.current_el, 3), self.mode
 
