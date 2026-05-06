@@ -450,7 +450,7 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 │   │   ├── ws/
 │   │   │   ├── __init__.py
 │   │   │   ├── events.py                 WebSocket event type constants
-│   │   │   └── telemetry.py              WebSocket endpoint + command dispatch + scheduler/influx wiring
+│   │   │   └── obs_queue.py              WebSocket endpoint + command dispatch + scheduler/influx wiring
 │   │   ├── __init__.py
 │   │   └── obs_queue.py                  Observation scheduling queue + async tick engine (singleton)
 │   ├── auth.py                           JWT authentication + RBAC (4 roles: viewer/operator/engineer/admin)
@@ -513,8 +513,8 @@ Click to expand and view direct access links to each file.
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/weather_fetcher.py  
 
 **WebSocket**
-- telemetry.py  
-  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/telemetry.py  
+- obs_queue.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/obs_queue.py  
 - events.py  
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/events.py  
 
