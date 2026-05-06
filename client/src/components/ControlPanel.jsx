@@ -323,7 +323,7 @@ export default function ControlPanel({ send, snapshot, selectedId }) {
       <div style={{ padding: "14px 16px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {OBS_MODES.map((m) => {
-            const isActive = (sys?.mode ?? mode) === m;
+            const isActive = (sys?.obs_mode ?? mode) === m;
             return (
               <button
                 key={m}
