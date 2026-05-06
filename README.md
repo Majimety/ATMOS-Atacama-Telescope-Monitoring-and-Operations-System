@@ -513,8 +513,8 @@ Click to expand and view direct access links to each file.
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/simulation/weather_fetcher.py  
 
 **WebSocket**
-- obs_queue.py  
-  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/obs_queue.py  
+- telemetry.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/telemetry.py  
 - events.py  
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/ws/events.py  
 

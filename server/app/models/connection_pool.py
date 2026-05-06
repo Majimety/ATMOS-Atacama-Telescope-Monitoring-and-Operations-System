@@ -1,13 +1,9 @@
 """
-telemetry.py — WebSocket handler สำหรับ ATMOS
+connection_pool.py — WebSocket handler สำหรับ ATMOS
 
 รับ connection จาก Frontend แล้ว stream snapshot ทุก 1 วินาที
 รับ command จาก Frontend (slew, stow, set_band, set_mode, inject_fault)
 ส่ง snapshot ไป InfluxDB และ Scheduler ทุก tick
-
-FIX (Bug 1): ลบ ws_authenticate() ออกจาก telemetry_endpoint() เพราะ
-main.py ทำ authentication ก่อนเรียก telemetry_endpoint() อยู่แล้ว
-การเรียกซ้ำทำให้ authenticate 2 รอบโดยไม่จำเป็น
 """
 
 import asyncio
