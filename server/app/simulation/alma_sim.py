@@ -213,6 +213,9 @@ async def get_system_snapshot() -> dict:
             {
                 "id": ant["id"],
                 "type": ant["type"],
+                "ant_type": ant[
+                    "ant_type"
+                ],  # FIX: เพิ่ม ant_type ให้ตรงกับที่ influx_writer อ่าน
                 "x": ant["x"],
                 "z": ant["z"],
                 "east_m": ant["east_m"],
