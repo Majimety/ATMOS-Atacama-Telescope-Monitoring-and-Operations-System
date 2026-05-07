@@ -7,6 +7,7 @@ Usage:
   pip install influxdb-client python-dotenv
   INFLUX_URL=http://localhost:8086 INFLUX_TOKEN=<token> INFLUX_ORG=atmos python seed.py
 """
+
 import os
 import math
 import random
@@ -69,8 +70,9 @@ def main():
         diurnal = math.sin(2 * math.pi * t.timestamp() / 86400)
         pwv = max(0.1, 0.5 + diurnal * 0.15 + random.gauss(0, 0.03))
         wind = max(0, 8 + math.sin(t.timestamp() / 600) * 3 + random.gauss(0, 0.5))
-        # Match influx_writer formula: τ₂₂₅ ≈ 0.04·PWV + 0.012 (Pardo 2001)
-        tau = max(0.01, 0.04 * pwv + 0.012)
+        # FIX: sync กับ weather_fetcher.py derive_tau_from_pwv()
+        # τ₂₂₅ = 0.030 + 0.058 × PWV  (ALMA Memo 271; Otarola et al. 2010)
+        tau = max(0.01, 0.058 * pwv + 0.030)
 
         points.append(
             Point("atmosphere")

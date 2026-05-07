@@ -177,19 +177,15 @@ export class ResilientWebSocket {
   async _onMessage(ev) {
     const now = Date.now();
 
-    if (ev.data === "pong") {
+    let parsed; try { parsed = JSON.parse(ev.data); } catch { return; }
+    if (parsed.type === "pong") {
       clearTimeout(this.heartbeatTimeoutTimer);
       const latency = now - this._pingTs;
       this._recordLatency(latency);
       return;
     }
 
-    let frame;
-    try {
-      frame = JSON.parse(ev.data);
-    } catch {
-      return;
-    }
+    const frame = parsed;
 
     if (this.lastFrameTs) {
       const gap = now - this.lastFrameTs;
@@ -258,7 +254,7 @@ export class ResilientWebSocket {
     this.heartbeatTimer = setInterval(() => {
       if (this.ws?.readyState !== WebSocket.OPEN) return;
       this._pingTs = Date.now();
-      this.ws.send("ping");
+      this.ws.send(JSON.stringify({ type: "ping", ts: this._pingTs }));
       this.heartbeatTimeoutTimer = setTimeout(() => {
         console.warn("[ATMOS WS] Heartbeat timeout — forcing reconnect");
         this.ws.close();

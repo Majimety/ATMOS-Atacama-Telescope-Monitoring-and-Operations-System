@@ -7,6 +7,7 @@ import { useAuthStore } from "../store/auth";
 const DEMO_ACCOUNTS = [
   { username: "viewer",   password: "viewer123",   role: "viewer",   label: "Read-only" },
   { username: "operator", password: "operator123", role: "operator", label: "Control" },
+  { username: "engineer", password: "engineer123", role: "engineer", label: "Fault injection" },
   { username: "admin",    password: "admin123",    role: "admin",    label: "Full access" },
 ];
 
@@ -131,7 +132,6 @@ export default function LoginPage({ onLogin }) {
           {"─".repeat(18)} DEMO ACCOUNTS {"─".repeat(18)}
         </div>
 
-        {/* Demo account quick-fill */}
         <div style={styles.demoGrid}>
           {DEMO_ACCOUNTS.map((acc) => (
             <button
@@ -251,7 +251,7 @@ const styles = {
   },
   demoGrid: {
     display:         "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    gridTemplateColumns: "repeat(4, 1fr)",
     gap:             8,
     marginTop:       12,
   },

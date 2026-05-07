@@ -25,7 +25,7 @@ from app.simulation.alma_sim import (
     cmd_inject_fault,
     cmd_clear_fault,
 )
-from app.api.scheduler import scheduler
+from app.obs_queue import scheduler
 from influx_writer import influx_writer
 
 logger = logging.getLogger(__name__)
@@ -106,7 +106,13 @@ async def telemetry_endpoint(ws: WebSocket):
             # 5. Listen for command (1s window)
             try:
                 raw = await asyncio.wait_for(ws.receive_text(), timeout=1.0)
-                _handle_command(json.loads(raw))
+                cmd = json.loads(raw)
+                if cmd.get("type") == "ping":
+                    await ws.send_text(
+                        json.dumps({"type": "pong", "ts": cmd.get("ts")})
+                    )
+                else:
+                    _handle_command(cmd)
             except asyncio.TimeoutError:
                 pass
 
@@ -156,6 +162,9 @@ def _handle_command(command: dict):
     elif cmd_type == "emergency_stop":
         cmd_stow()
         logger.critical("EMERGENCY STOP — all dishes stowing")
+
+    elif cmd_type == "ping":
+        pass
 
     else:
         logger.warning(f"Unknown command: {cmd_type}")

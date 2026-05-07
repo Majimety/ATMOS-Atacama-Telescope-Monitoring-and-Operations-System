@@ -59,6 +59,8 @@ export default function Dashboard() {
   const sys = snapshot.system;
   const atm = snapshot.atmosphere;
   const alma = snapshot.alma;
+  // FIX: target fields อยู่ใน commanded_target ไม่ใช่ system
+  const target = snapshot.commanded_target ?? {};
   const selectedDish = getSelectedDish(snapshot);
 
   const onlinePct = alma.total_count > 0
@@ -91,11 +93,11 @@ export default function Dashboard() {
       <div style={S.header}>TARGET</div>
       <div style={S.stat}>
         <div style={S.statLabel}>NAME</div>
-        <div style={{ ...S.statValue, fontSize: 13, color: "#00d4ff" }}>{sys.target_name}</div>
+        <div style={{ ...S.statValue, fontSize: 13, color: "#00d4ff" }}>{target.name}</div>
       </div>
       <div style={S.grid}>
-        <Stat label="RA" value={sys.target_ra} />
-        <Stat label="DEC" value={sys.target_dec} />
+        <Stat label="RA" value={target.ra} />
+        <Stat label="DEC" value={target.dec} />
       </div>
 
       {selectedDish && (

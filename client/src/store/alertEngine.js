@@ -14,6 +14,7 @@ let prevPwvLevel = "ok";
 export function detectAlerts(snapshot) {
   const alerts = [];
   const { alma, atmosphere } = snapshot;
+  if (!alma?.dishes || !atmosphere) return alerts;
 
   for (const dish of alma.dishes) {
     const wasOnline = prevDishOnline.get(dish.id);
