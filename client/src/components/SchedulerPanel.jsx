@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { useTelemetryStore } from "../store/telemetryStore";
 import { useAuthStore, hasRole } from "../store/auth";
 
@@ -6,10 +5,10 @@ import { useAuthStore, hasRole } from "../store/auth";
 const API = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 const PRIORITY_META = {
-  0: { label: "URGENT", color: "#ff4444", bg: "#1a0505" },
-  1: { label: "HIGH",   color: "#ff8844", bg: "#1a0c05" },
-  2: { label: "NORMAL", color: "#00aaff", bg: "#00080f" },
-  3: { label: "LOW",    color: "#445566", bg: "#070d14" },
+  0: { label: "URGENT", color: "#ff4444", bg: "#130404" },
+  1: { label: "HIGH",   color: "#ff8844", bg: "#130b04" },
+  2: { label: "NORMAL", color: "#00aaff", bg: "#00070d" },
+  3: { label: "LOW",    color: "#445566", bg: "#070c12" },
 };
 
 const STATUS_META = {
@@ -41,34 +40,29 @@ function fmtElapsed(s) {
 function ActiveJob({ job }) {
   if (!job) return (
     <div style={S.emptyActive}>
-      <div style={{ color: "#223344", fontSize: 22, marginBottom: 8 }}>◌</div>
-      <div style={{ color: "#223344", fontSize: 11, letterSpacing: "0.08em" }}>NO ACTIVE OBSERVATION</div>
-      <div style={{ color: "#1a2a34", fontSize: 10, marginTop: 4 }}>Scheduler awaiting conditions</div>
+      <div style={{ color: "#1a2d3d", fontSize: 18, marginBottom: 6 }}>◌</div>
+      <div style={{ color: "#1e3344", fontSize: 10, letterSpacing: "0.1em" }}>NO ACTIVE OBSERVATION</div>
+      <div style={{ color: "#152535", fontSize: 9, marginTop: 3 }}>Scheduler awaiting conditions</div>
     </div>
   );
 
   const pct = job.progress_pct;
-  const pm  = PRIORITY_META[job.priority] ?? PRIORITY_META[2];
 
   return (
     <div style={S.activeJob}>
       {/* Header row */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-        <div>
-          <div style={{ fontSize: 15, color: "#00ff88", fontWeight: 700, letterSpacing: "0.05em" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+        <div style={{ minWidth: 0, flex: 1, marginRight: 8 }}>
+          <div style={{ fontSize: 14, color: "#00ff88", fontWeight: 700, letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {job.target_name}
           </div>
-          <div style={{ fontSize: 10, color: "#445566", marginTop: 2 }}>
-            {job.ra}  {job.dec}
+          <div style={{ fontSize: 9, color: "#334d5c", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {job.ra}&nbsp;&nbsp;{job.dec}
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontSize: 11, color: BAND_COLORS[job.band] ?? "#00d4ff" }}>
-            B{job.band}
-          </div>
-          <div style={{ fontSize: 10, color: "#445566", marginTop: 2 }}>
-            {fmtDuration(job.duration_s)}
-          </div>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{ fontSize: 11, color: BAND_COLORS[job.band] ?? "#00d4ff", fontWeight: 700 }}>B{job.band}</div>
+          <div style={{ fontSize: 9, color: "#334d5c", marginTop: 2 }}>{fmtDuration(job.duration_s)}</div>
         </div>
       </div>
 
@@ -76,15 +70,15 @@ function ActiveJob({ job }) {
       <div style={S.progressTrack}>
         <div style={{ ...S.progressFill, width: `${pct}%` }} />
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "#445566" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 9, color: "#334d5c" }}>
         <span>{fmtElapsed(job.elapsed_s)} elapsed</span>
-        <span>{pct.toFixed(1)}%</span>
-        <span>{fmtDuration(job.duration_s - job.elapsed_s)} remaining</span>
+        <span style={{ color: "#00aa66" }}>{pct.toFixed(1)}%</span>
+        <span>{fmtDuration(Math.max(0, job.duration_s - job.elapsed_s))} remaining</span>
       </div>
 
       {/* Notes */}
       {job.notes && (
-        <div style={{ fontSize: 10, color: "#334455", marginTop: 8, fontStyle: "italic" }}>
+        <div style={{ fontSize: 9, color: "#2a3d4d", marginTop: 6, fontStyle: "italic", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {job.notes}
         </div>
       )}
@@ -97,40 +91,34 @@ function QueueRow({ job, index, onRemove, onMoveUp, onMoveDown, canControl }) {
 
   return (
     <div style={{ ...S.queueRow, background: pm.bg }}>
-      {/* Index + priority */}
-      <div style={{ width: 28, textAlign: "center", flexShrink: 0 }}>
-        <div style={{ fontSize: 11, color: "#334455" }}>#{index + 1}</div>
+      {/* Index */}
+      <div style={{ width: 22, textAlign: "center", flexShrink: 0, fontSize: 10, color: "#2a3d4d" }}>
+        #{index + 1}
       </div>
 
       {/* Priority badge */}
-      <div style={{ ...S.badge, color: pm.color, borderColor: pm.color + "44", width: 48 }}>
+      <div style={{ ...S.badge, color: pm.color, borderColor: pm.color + "44", width: 44, flexShrink: 0 }}>
         {pm.label}
       </div>
 
-      {/* Target info */}
+      {/* Target info — flex:1 + minWidth:0 ทำให้ ellipsis ทำงาน */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, color: "#aabbcc", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 11, color: "#99bbcc", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {job.target_name}
         </div>
-        <div style={{ fontSize: 9, color: "#334455", marginTop: 1 }}>
+        <div style={{ fontSize: 9, color: "#2a3d4d", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           B{job.band} · {fmtDuration(job.duration_s)}
-          {job.max_pwv_mm < 3 && <span style={{ color: "#335566" }}> · PWV&lt;{job.max_pwv_mm}mm</span>}
+          {job.max_pwv_mm < 3 && <span style={{ color: "#2a4d55" }}> · PWV&lt;{job.max_pwv_mm}mm</span>}
+          {job.skip_reason && <span style={{ color: "#554400" }}> · {job.skip_reason}</span>}
         </div>
       </div>
 
-      {/* Skip reason */}
-      {job.skip_reason && (
-        <div style={{ fontSize: 9, color: "#554400", maxWidth: 100, textAlign: "right", lineHeight: 1.3 }}>
-          {job.skip_reason}
-        </div>
-      )}
-
       {/* Controls */}
       {canControl && (
-        <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
           <button style={S.iconBtn} onClick={() => onMoveUp(job.job_id)} title="Move up">▲</button>
           <button style={S.iconBtn} onClick={() => onMoveDown(job.job_id)} title="Move down">▼</button>
-          <button style={{ ...S.iconBtn, color: "#ff4444" }} onClick={() => onRemove(job.job_id)} title="Remove">✕</button>
+          <button style={{ ...S.iconBtn, color: "#cc3333" }} onClick={() => onRemove(job.job_id)} title="Remove">✕</button>
         </div>
       )}
     </div>
@@ -139,23 +127,24 @@ function QueueRow({ job, index, onRemove, onMoveUp, onMoveDown, canControl }) {
 
 function HistoryRow({ job }) {
   const sm = STATUS_META[job.status] ?? STATUS_META.completed;
-  const pm = PRIORITY_META[job.priority] ?? PRIORITY_META[2];
 
   return (
     <div style={S.historyRow}>
-      <div style={{ ...S.badge, color: sm.color, borderColor: sm.color + "33", width: 56 }}>
+      <div style={{ ...S.badge, color: sm.color, borderColor: sm.color + "33", width: 52, flexShrink: 0 }}>
         {sm.label}
       </div>
-      <div style={{ flex: 1, fontSize: 11, color: "#556677" }}>{job.target_name}</div>
-      <div style={{ fontSize: 10, color: "#334455" }}>B{job.band}</div>
-      <div style={{ fontSize: 10, color: "#334455", minWidth: 40, textAlign: "right" }}>
+      <div style={{ flex: 1, minWidth: 0, fontSize: 10, color: "#445566", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {job.target_name}
+      </div>
+      <div style={{ fontSize: 9, color: "#2a3d4d", flexShrink: 0 }}>B{job.band}</div>
+      <div style={{ fontSize: 9, color: "#2a3d4d", flexShrink: 0, minWidth: 36, textAlign: "right" }}>
         {fmtElapsed(job.elapsed_s)}
       </div>
     </div>
   );
 }
 
-// ── Add-job form ──────────────────────────────────────────────────────────────
+// ── Add-job catalogue ─────────────────────────────────────────────────────────
 
 const QUICK_TARGETS = [
   { target_name:"Sgr A*",     ra:"17h45m40s", dec:"-29°00'28\"", az:183.7, el:52.4, band:6, duration_s:3600 },
@@ -181,13 +170,15 @@ function AddJobForm({ onAdded }) {
   }
 
   return (
-    <div style={S.addForm}>
+    <div>
       <div style={S.sectionHeader}>ADD FROM CATALOGUE</div>
       <div style={S.quickGrid}>
         {QUICK_TARGETS.map((t) => (
           <button key={t.target_name} style={S.quickBtn} onClick={() => submitQuick(t)}>
-            <div style={{ color: "#7abbe8", fontSize: 11, fontWeight: 600 }}>{t.target_name}</div>
-            <div style={{ color: "#334455", fontSize: 9, marginTop: 2 }}>
+            <div style={{ color: "#6aabda", fontSize: 10, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {t.target_name}
+            </div>
+            <div style={{ color: "#2a3d4d", fontSize: 9, marginTop: 2 }}>
               B{t.band} · {fmtDuration(t.duration_s)}
             </div>
           </button>
@@ -206,17 +197,14 @@ export default function SchedulerPanel() {
   const canControl = hasRole(userRole, "operator");
 
   const sched = snapshot?.scheduler;
-
   const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
   async function removeJob(id) {
     await fetch(`${API}/api/scheduler/jobs/${id}`, { method: "DELETE", headers });
   }
-
   async function moveJob(id, dir) {
     await fetch(`${API}/api/scheduler/jobs/${id}/move?direction=${dir}`, { method: "POST", headers });
   }
-
   async function skipActive() {
     await fetch(`${API}/api/scheduler/skip`, { method: "POST", headers });
   }
@@ -224,8 +212,8 @@ export default function SchedulerPanel() {
   if (!sched) return (
     <div style={S.wrap}>
       <div style={S.sectionHeader}>OBSERVATION SCHEDULER</div>
-      <div style={{ padding: 24, color: "#223344", fontSize: 12, textAlign: "center" }}>
-        Connecting to scheduler…
+      <div style={{ padding: 20, color: "#1e3344", fontSize: 11, textAlign: "center" }}>
+        Connecting…
       </div>
     </div>
   );
@@ -235,189 +223,227 @@ export default function SchedulerPanel() {
   return (
     <div style={S.wrap}>
 
-      {/* ── Status bar ── */}
+      {/* ── Status bar: QUEUED / COMPLETED / SKIPPED / SKIP — single row ── */}
       <div style={S.statusBar}>
         <div style={S.statChip}>
-          <span style={{ color: "#334455" }}>QUEUED</span>
+          <span style={{ color: "#2a4455" }}>QUEUED</span>
           <span style={{ color: "#00aaff", fontWeight: 700 }}>{stats.queued}</span>
         </div>
         <div style={S.statChip}>
-          <span style={{ color: "#334455" }}>COMPLETED</span>
+          <span style={{ color: "#2a4455" }}>COMPLETED</span>
           <span style={{ color: "#00ff88", fontWeight: 700 }}>{stats.completed}</span>
         </div>
         <div style={S.statChip}>
-          <span style={{ color: "#334455" }}>SKIPPED</span>
+          <span style={{ color: "#2a4455" }}>SKIPPED</span>
           <span style={{ color: "#ffaa00", fontWeight: 700 }}>{stats.skipped}</span>
         </div>
+        {/* SKIP button — marginLeft:auto ดัน ไปชิดขวา */}
         {active && canControl && (
-          <button style={S.skipBtn} onClick={skipActive}>■ SKIP</button>
+          <button style={S.skipBtn} onClick={skipActive}>&#9632; SKIP</button>
         )}
       </div>
 
-      {/* ── Active observation ── */}
+      {/* ── Active observation (fixed, ไม่ scroll) ── */}
       <div style={S.sectionHeader}>ACTIVE OBSERVATION</div>
-      <ActiveJob job={active} />
-
-      {/* ── Queue ── */}
-      <div style={S.sectionHeader}>
-        QUEUE ({queue.length})
+      <div style={S.activeWrap}>
+        <ActiveJob job={active} />
       </div>
-      <div style={S.queueList}>
-        {queue.length === 0 && (
-          <div style={{ padding: "16px 12px", color: "#1a2a34", fontSize: 11, textAlign: "center" }}>
-            Queue empty — add observations below
+
+      {/* ── Scrollable: Queue + Catalogue + History ── */}
+      <div style={S.scrollArea}>
+
+        <div style={S.sectionHeader}>QUEUE ({queue.length})</div>
+        {queue.length === 0 ? (
+          <div style={{ padding: "12px", color: "#152535", fontSize: 10, textAlign: "center" }}>
+            Queue empty
           </div>
+        ) : (
+          queue.map((job, i) => (
+            <QueueRow
+              key={job.job_id}
+              job={job}
+              index={i}
+              canControl={canControl}
+              onRemove={removeJob}
+              onMoveUp={(id) => moveJob(id, -1)}
+              onMoveDown={(id) => moveJob(id, 1)}
+            />
+          ))
         )}
-        {queue.map((job, i) => (
-          <QueueRow
-            key={job.job_id}
-            job={job}
-            index={i}
-            canControl={canControl}
-            onRemove={removeJob}
-            onMoveUp={(id) => moveJob(id, -1)}
-            onMoveDown={(id) => moveJob(id, 1)}
-          />
-        ))}
-      </div>
 
-      {/* ── Add job ── */}
-      {canControl && <AddJobForm onAdded={() => {}} />}
+        {canControl && <AddJobForm onAdded={() => {}} />}
 
-      {/* ── History ── */}
-      {history.length > 0 && (
-        <>
-          <div style={S.sectionHeader}>RECENT HISTORY</div>
-          <div>
+        {history.length > 0 && (
+          <>
+            <div style={S.sectionHeader}>RECENT HISTORY</div>
             {history.slice().reverse().map((j) => (
               <HistoryRow key={j.job_id + j.completed_at} job={j} />
             ))}
-          </div>
-        </>
-      )}
+          </>
+        )}
+
+        <div style={{ height: 12 }} />
+      </div>
     </div>
   );
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const S = {
+  // root: flex column, overflow hidden — child scrollArea จัดการ scroll เอง
   wrap: {
-    fontFamily:  "monospace",
-    background:  "#07101a",
-    height:      "100%",
-    overflowY:   "auto",
-    color:       "#c0d4e0",
-    display:     "flex",
+    fontFamily:    "monospace",
+    background:    "#07101a",
+    height:        "100%",
+    overflow:      "hidden",
+    color:         "#b0c8d8",
+    display:       "flex",
     flexDirection: "column",
   },
+
+  // ── Status bar: single row, ไม่ wrap, height คงที่ 30px ─────────────────
   statusBar: {
     display:      "flex",
     alignItems:   "center",
-    gap:          8,
-    padding:      "6px 12px",
-    borderBottom: "1px solid #0d1a24",
-    background:   "#050d14",
+    gap:          4,
+    padding:      "0 8px",
+    height:       30,
+    borderBottom: "1px solid #0c1820",
+    background:   "#040c12",
     flexShrink:   0,
+    flexWrap:     "nowrap",     // บังคับบรรทัดเดียว
+    overflow:     "hidden",
   },
   statChip: {
-    display: "flex", gap: 5, alignItems: "center",
-    fontSize: 10, letterSpacing: "0.06em",
-    padding: "2px 8px", border: "1px solid #0d1a24", borderRadius: 2,
-  },
-  skipBtn: {
-    marginLeft:  "auto",
-    background:  "transparent",
-    border:      "1px solid #ff4444",
-    color:       "#ff4444",
-    fontFamily:  "monospace",
-    fontSize:    10,
-    padding:     "3px 10px",
-    cursor:      "pointer",
-    letterSpacing: "0.08em",
-  },
-  sectionHeader: {
-    padding:      "7px 12px",
-    borderBottom: "1px solid #0d1a24",
-    borderTop:    "1px solid #0d1a24",
-    fontSize:     10,
-    color:        "#00d4ff",
-    letterSpacing: "0.1em",
-    fontWeight:   600,
-    background:   "#050d14",
+    display:      "flex",
+    gap:          4,
+    alignItems:   "center",
+    fontSize:     9,
+    letterSpacing:"0.04em",
+    padding:      "2px 5px",
+    border:       "1px solid #0c1820",
+    borderRadius: 2,
+    whiteSpace:   "nowrap",
     flexShrink:   0,
   },
+  skipBtn: {
+    marginLeft:   "auto",
+    background:   "transparent",
+    border:       "1px solid #993333",
+    color:        "#cc4444",
+    fontFamily:   "monospace",
+    fontSize:     9,
+    padding:      "2px 8px",
+    cursor:       "pointer",
+    letterSpacing:"0.06em",
+    whiteSpace:   "nowrap",
+    flexShrink:   0,
+  },
+
+  // ── Section headers (sticky inside scrollArea) ────────────────────────────
+  sectionHeader: {
+    padding:      "5px 10px",
+    borderBottom: "1px solid #0c1820",
+    borderTop:    "1px solid #0c1820",
+    fontSize:     9,
+    color:        "#00c4ee",
+    letterSpacing:"0.1em",
+    fontWeight:   600,
+    background:   "#040c12",
+    flexShrink:   0,
+    position:     "sticky",
+    top:          0,
+    zIndex:       1,
+  },
+
+  // ── Active job ────────────────────────────────────────────────────────────
+  activeWrap: { flexShrink: 0 },
   emptyActive: {
-    padding:     "24px 12px",
-    textAlign:   "center",
-    flexShrink:  0,
+    padding:   "16px 12px",
+    textAlign: "center",
   },
   activeJob: {
-    padding:     "14px 14px",
-    borderBottom: "1px solid #0d1a24",
-    flexShrink:  0,
+    padding:      "10px 12px",
+    borderBottom: "1px solid #0c1820",
   },
   progressTrack: {
-    height:      6,
-    background:  "#0a1a24",
-    border:      "1px solid #0d2535",
+    height:      4,
+    background:  "#08151e",
+    border:      "1px solid #0a2030",
     borderRadius: 1,
     overflow:    "hidden",
-    marginTop:   10,
+    marginTop:   8,
   },
   progressFill: {
-    height:      "100%",
-    background:  "linear-gradient(90deg, #003344, #00aa66)",
-    transition:  "width 1s linear",
+    height:     "100%",
+    background: "linear-gradient(90deg, #002233, #008855)",
+    transition: "width 1s linear",
   },
-  queueList:  { flexShrink: 0 },
+
+  // ── Scrollable area ───────────────────────────────────────────────────────
+  scrollArea: {
+    flex:           1,
+    overflowY:      "auto",
+    overflowX:      "hidden",
+    minHeight:      0,
+    scrollbarWidth: "thin",
+    scrollbarColor: "#0c2030 #040c12",
+  },
+
+  // ── Queue rows ────────────────────────────────────────────────────────────
   queueRow: {
     display:      "flex",
     alignItems:   "center",
-    gap:          8,
-    padding:      "7px 10px",
-    borderBottom: "1px solid #0a141e",
+    gap:          5,
+    padding:      "5px 8px",
+    borderBottom: "1px solid #09131c",
   },
   badge: {
-    fontSize:     9,
-    fontWeight:   700,
-    letterSpacing: "0.08em",
-    padding:      "2px 5px",
-    border:       "1px solid",
-    textAlign:    "center",
-    flexShrink:   0,
+    fontSize:      9,
+    fontWeight:    700,
+    letterSpacing: "0.05em",
+    padding:       "1px 4px",
+    border:        "1px solid",
+    textAlign:     "center",
+    flexShrink:    0,
+    borderRadius:  2,
   },
   iconBtn: {
     background:  "transparent",
-    border:      "1px solid #0d2030",
-    color:       "#334455",
+    border:      "1px solid #0c1e2a",
+    color:       "#2a3d4d",
     fontFamily:  "monospace",
     fontSize:    10,
-    padding:     "2px 5px",
+    padding:     "1px 4px",
     cursor:      "pointer",
     lineHeight:  1,
   },
+
+  // ── History rows ──────────────────────────────────────────────────────────
   historyRow: {
     display:      "flex",
     alignItems:   "center",
-    gap:          8,
-    padding:      "5px 10px",
-    borderBottom: "1px solid #080f16",
-    opacity:      0.75,
+    gap:          6,
+    padding:      "4px 8px",
+    borderBottom: "1px solid #070f16",
+    opacity:      0.7,
   },
-  addForm: { flexShrink: 0 },
+
+  // ── Add-job catalogue ─────────────────────────────────────────────────────
   quickGrid: {
-    display: "grid",
+    display:             "grid",
     gridTemplateColumns: "repeat(2, 1fr)",
-    gap: 1,
-    background: "#050d14",
+    gap:                 1,
+    background:          "#040c12",
   },
   quickBtn: {
-    background:  "#07101a",
-    border:      "none",
-    borderBottom: "1px solid #0a141e",
-    padding:     "9px 12px",
-    textAlign:   "left",
-    cursor:      "pointer",
-    fontFamily:  "monospace",
+    background:   "#060f18",
+    border:       "none",
+    borderBottom: "1px solid #09131c",
+    padding:      "7px 9px",
+    textAlign:    "left",
+    cursor:       "pointer",
+    fontFamily:   "monospace",
+    overflow:     "hidden",
   },
 };

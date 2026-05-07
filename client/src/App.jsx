@@ -24,32 +24,34 @@ function TabBtn({ active, onClick, children, badge }) {
         borderBottom: `2px solid ${active ? "var(--accent-cyan)" : "transparent"}`,
         color: active ? "var(--accent-cyan)" : "var(--text-dim)",
         fontFamily: "var(--mono)",
-        fontSize: 11,
-        padding: "9px 4px",
+        fontSize: 10,          // ลดจาก 11 → 10 เพื่อให้ 4 tabs พอดี 300px
+        padding: "8px 2px",    // padding แน่นขึ้น
         cursor: "pointer",
         position: "relative",
         transition: "color 0.15s, border-color 0.15s, background 0.15s",
         fontWeight: active ? "600" : "400",
-        letterSpacing: "0.06em",
+        letterSpacing: "0.03em",  // ลด letterSpacing
+        whiteSpace: "nowrap",
+        overflow: "hidden",
       }}
     >
       {children}
       {badge > 0 && (
         <span style={{
           position: "absolute",
-          top: 5,
-          right: 6,
+          top: 4,
+          right: 3,
           background: "var(--accent-red)",
           color: "#fff",
-          fontSize: 9,
+          fontSize: 8,
           fontWeight: "bold",
-          padding: "1px 4px",
+          padding: "1px 3px",
           borderRadius: 8,
-          minWidth: 14,
+          minWidth: 13,
           textAlign: "center",
-          lineHeight: "14px",
+          lineHeight: "13px",
         }}>
-          {badge > 9 ? "9+" : badge}
+          {badge > 99 ? "99+" : badge}
         </span>
       )}
     </button>
@@ -371,7 +373,7 @@ export default function App() {
           })()}
         </div>
 
-        <div style={{ width: 300, borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg-card)", flexShrink: 0 }}>
+        <div style={{ width: 300, borderLeft: "1px solid var(--border)", display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--bg-card)", flexShrink: 0, minHeight: 0 }}>
           <div style={{ display: "flex", borderBottom: "1px solid var(--border)", flexShrink: 0, background: "var(--bg-panel)" }}>
             <TabBtn active={rightTab === "control"}   onClick={() => setRightTab("control")}>CONTROL</TabBtn>
             <TabBtn active={rightTab === "telemetry"} onClick={() => setRightTab("telemetry")}>TELEMETRY</TabBtn>
@@ -379,7 +381,7 @@ export default function App() {
             <TabBtn active={rightTab === "alerts"}    onClick={() => setRightTab("alerts")} badge={unackedCount}>ALERTS</TabBtn>
           </div>
 
-          <div style={{ flex: 1, overflow: "hidden", minHeight: 0 }}>
+          <div style={{ flex: 1, overflow: "hidden", minHeight: 0, display: "flex", flexDirection: "column" }}>
             {rightTab === "control"   && <ControlPanel send={send} snapshot={snapshot} selectedId={selectedId} />}
             {rightTab === "telemetry" && <TelemetryGraphs />}
             {rightTab === "scheduler" && <SchedulerPanel />}
