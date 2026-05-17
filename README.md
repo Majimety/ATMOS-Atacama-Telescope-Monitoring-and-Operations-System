@@ -12,9 +12,9 @@ A high-fidelity **SCADA (Supervisory Control and Data Acquisition)** simulation 
 
 ## Preview
 
-![ATMOS Dashboard — Pointing Control panel with 3D dish visualization](docs/pictures/ATMOS_Dashboard.png)
+![ATMOS Dashboard — Scheduler panel with 3D array visualization](docs/pictures/ATMOS_Dashboard.png)
 
-> *ATMOS control interface showing 62/64 antennas online, slewing to target 3C 273 at Az 84.1° El 63.3°*
+> *ATMOS control interface showing 60/64 antennas online, tracking Sgr A\* at Az 183.7° El 52.4°, with 4 queued observations including an URGENT Crab Nebula job (PWV < 2mm constraint)*
 
 ---
 
