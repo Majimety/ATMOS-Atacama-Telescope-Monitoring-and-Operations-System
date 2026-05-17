@@ -8,6 +8,15 @@
 
 A high-fidelity **SCADA (Supervisory Control and Data Acquisition)** simulation platform for real-time monitoring and control of radio telescope arrays at the Atacama Desert Observatory. ATMOS replicates the operational environment of ALMA (Atacama Large Millimeter/submillimeter Array) and associated facilities, incorporating physically accurate atmospheric models, interferometric science visualizations, and a production-grade WebSocket telemetry pipeline.
 
+## Real-world Reference (ALMA Observatory)
+
+![ALMA Array in Snow](docs/pictures/ALMA_Aerial_Snow_Rojas.jpeg)
+
+<p align="center">
+  <em>Aerial view of the Atacama Large Millimeter/submillimeter Array (ALMA) in Chile, illustrating one of its many antenna array configurations across the high-altitude plateau. This project abstracts and simulates these real-world operations within an interactive monitoring system.</em><br/>
+  <sub>Image credit: Juan Carlos Rojas — ALMA (ESO/NAOJ/NRAO)</sub>
+</p>
+
 ---
 
 ## Preview
