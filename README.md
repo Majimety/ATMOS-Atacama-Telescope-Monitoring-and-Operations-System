@@ -474,7 +474,7 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 
 - File: `client/public/alma.glb`
 - Description: 3D model of an ALMA 12 m dish used in the real-time Three.js visualisation (`DishMesh.jsx`)
-- Source: Based on publicly available information and media from the :contentReference[oaicite:0]{index=0} (ALMA), provided via the :contentReference[oaicite:1]{index=1}
+- Source: Based on publicly available information and media from the Atacama Large Millimeter/submillimeter Array (ALMA), provided via the [National Radio Astronomy Observatory ALMA page](https://public.nrao.edu/telescopes/alma/)
 - Format: glTF Binary (.glb)
 - Notes:
   - Optimised for real-time rendering (low-poly, GPU-friendly)
