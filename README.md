@@ -1,6 +1,6 @@
 <h1 align="center">
-  <img src="documentation/images/ATMOS.svg" width="44" align="top" alt="ATMOS UI Logo" />
-  Seelen UI
+  <img src="documentation/images/ATMOS.svg" width="44" align="top" />
+  ATMOS UI Logo
 </h1>
 
 # ATMOS — Atacama Telescope Monitoring and Operations System
