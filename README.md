@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="documentation/images/ATMOS.svg" width="44" align="top" />
+  <img src="docs/pictures/ATMOS.svg" width="44" align="top" />
   ATMOS UI Logo
 </h1>
 
