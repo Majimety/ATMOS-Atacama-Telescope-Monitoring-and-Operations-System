@@ -1,3 +1,8 @@
+<h1 align="center">
+  <img src="documentation/images/ATMOS.svg" width="44" align="top" alt="ATMOS UI Logo" />
+  Seelen UI
+</h1>
+
 # ATMOS — Atacama Telescope Monitoring and Operations System
 
 [![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)](https://python.org)
