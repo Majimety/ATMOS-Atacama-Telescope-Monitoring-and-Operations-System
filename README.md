@@ -1,6 +1,6 @@
 <h1 align="center">
   <img src="client/public/ATMOS.svg" width="44" align="top" />
-  ATMOS UI
+  ATMOS Observatory Control & Simulation System
 </h1>
 
 # ATMOS — Atacama Telescope Monitoring and Operations System
