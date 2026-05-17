@@ -466,6 +466,20 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 ├── README.md
 └── TELESCOPE_DATA.md                     Physical parameters and reference data for all simulated facilities
 ```
+---
+
+## Assets / 3D Models
+
+### ALMA Antenna Model (`alma.glb`)
+
+- File: `client/public/alma.glb`
+- Description: 3D model of an ALMA 12 m dish used in the real-time Three.js visualisation (`DishMesh.jsx`)
+- Source: [ADD SOURCE HERE — e.g. Sketchfab / self-made / derived dataset]
+- Format: glTF Binary (.glb)
+- Notes:
+  - Optimised for real-time rendering (low-poly, GPU-friendly)
+  - Used for Az/El animation via React Three Fiber
+  - Scaled to match ENU coordinate system (metres)
 
 ---
 
