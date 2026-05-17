@@ -1,153 +1,64 @@
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Stars, Html } from "@react-three/drei";
-import { useRef, useMemo, useState } from "react";
+import { useRef, useMemo, useState, Suspense } from "react";
 import * as THREE from "three";
 import { useTelemetryStore } from "../store/telemetryStore";
+import DishMesh from "./DishMesh";
 
-// ตำแหน่งใน sim (หน่วยเมตร) หารด้วย WORLD_SCALE เพื่อให้พอดีกับ scene
-// เปลี่ยนค่านี้ที่เดียวถ้าต้องการ rescale ทั้ง scene
+/**
+ * Scene.jsx — Three.js canvas หลักของ ATMOS
+ *
+ * การเปลี่ยนแปลงจากเดิม:
+ *   - Dish component ถูกแทนด้วย <DishMesh> ที่ load alma.glb จริง
+ *   - ครอบ <Suspense> สำหรับ GLB loading — แสดง fallback ขณะโหลด
+ *   - ลบ Dish inline component ออก (ย้ายไป DishMesh.jsx แล้ว)
+ *   - LargeTelescope และ Terrain ยังคงเป็น geometry เดิม
+ */
+
 const WORLD_SCALE = 1 / 2.5;
 
-
-// ── Dish component ────────────────────────────────────────────────────────────
-
-function Dish({ id, position, azDeg, elDeg, online, selected, tsysK, onSelect }) {
-  const azGroupRef = useRef();
-  const elGroupRef = useRef();
-  const [hovered, setHovered] = useState(false);
-
-  const targetAzRad = THREE.MathUtils.degToRad(-(azDeg - 180));
-  // elevation: 90° = straight up (π/2), 0° = horizon
-  const targetElRad = THREE.MathUtils.degToRad(elDeg - 90);
-
-  useFrame((_, delta) => {
-    if (!azGroupRef.current || !elGroupRef.current) return;
-    const speed = online ? 0.8 : 0.1;
-    azGroupRef.current.rotation.y = THREE.MathUtils.lerp(
-      azGroupRef.current.rotation.y, targetAzRad, speed * delta * 3
-    );
-    elGroupRef.current.rotation.x = THREE.MathUtils.lerp(
-      elGroupRef.current.rotation.x, targetElRad, speed * delta * 3
-    );
-  });
-
-  const bodyColor = online ? (selected ? "#00ffcc" : hovered ? "#aaddff" : "#b8ccd8") : "#5a3333";
-  const emissive  = online ? (selected ? "#003322" : "#0a1a2a") : "#1a0505";
-  const legColor  = "#3a4a55";
-
+// ── GLB Loading fallback (แสดงระหว่างโหลด alma.glb ครั้งแรก) ────────────────
+function DishFallback({ position }) {
   return (
-    <group
-      position={position}
-      onPointerOver={() => { setHovered(true); document.body.style.cursor = "pointer"; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = "default"; }}
-      onClick={(e) => { e.stopPropagation(); onSelect(id); }}
-    >
-      {/* Base plate */}
-      <mesh position={[0, 0.08, 0]} receiveShadow>
-        <cylinderGeometry args={[0.22, 0.28, 0.16, 12]} />
-        <meshStandardMaterial color="#2a3540" roughness={0.9} metalness={0.3} />
+    <group position={position}>
+      <mesh position={[0, 0.8, 0]}>
+        <cylinderGeometry args={[0.06, 0.09, 1.4, 8]} />
+        <meshStandardMaterial color="#2a3a45" />
       </mesh>
-
-      {/* Main column */}
-      <mesh position={[0, 0.78, 0]} castShadow>
-        <cylinderGeometry args={[0.065, 0.09, 1.4, 10]} />
-        <meshStandardMaterial color={legColor} roughness={0.7} metalness={0.5} />
+      <mesh position={[0, 1.7, 0]}>
+        <sphereGeometry args={[0.5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#667788" wireframe />
       </mesh>
-
-      {/* AZ rotation group — rotates around Y axis */}
-      <group ref={azGroupRef} position={[0, 1.5, 0]}>
-        {/* Yoke arms */}
-        {[-1, 1].map((side) => (
-          <mesh key={side} position={[side * 0.18, 0.12, 0]} castShadow>
-            <cylinderGeometry args={[0.04, 0.04, 0.24, 8]} />
-            <meshStandardMaterial color={legColor} roughness={0.6} metalness={0.6} />
-          </mesh>
-        ))}
-
-        {/* EL rotation group — rotates around X axis */}
-        <group ref={elGroupRef} position={[0, 0.22, 0]}>
-          {/* Dish bowl */}
-          <mesh castShadow>
-            <sphereGeometry args={[0.52, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial
-              color={bodyColor}
-              emissive={emissive}
-              roughness={0.25}
-              metalness={0.65}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-
-          {/* Feed horn struts × 4 */}
-          {[0, 1, 2, 3].map((i) => {
-            const a = (i / 4) * Math.PI * 2;
-            return (
-              <mesh
-                key={i}
-                position={[Math.cos(a) * 0.3, 0.28, Math.sin(a) * 0.3]}
-                rotation={[Math.atan2(0.38, 0.3) * (i % 2 === 0 ? -1 : 1), a, 0]}
-              >
-                <cylinderGeometry args={[0.007, 0.007, 0.5, 5]} />
-                <meshStandardMaterial color="#667788" metalness={0.8} roughness={0.3} />
-              </mesh>
-            );
-          })}
-
-          {/* Feed horn */}
-          <mesh position={[0, 0.42, 0]}>
-            <cylinderGeometry args={[0.03, 0.022, 0.18, 8]} />
-            <meshStandardMaterial color="#99aa22" metalness={0.9} roughness={0.1} />
-          </mesh>
-          <mesh position={[0, 0.52, 0]}>
-            <sphereGeometry args={[0.042, 10, 10]} />
-            <meshStandardMaterial
-              color={online ? "#aabb33" : "#553333"}
-              emissive={online ? "#445500" : "#330000"}
-              metalness={0.95}
-            />
-          </mesh>
-        </group>
-      </group>
-
-      {/* Selection / hover ring */}
-      {(selected || hovered) && (
-        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.3, 0.38, 32]} />
-          <meshBasicMaterial
-            color={selected ? "#00ffcc" : "#4488ff"}
-            transparent
-            opacity={selected ? 0.9 : 0.5}
-          />
-        </mesh>
-      )}
-
-      {/* Fault indicator */}
-      {!online && (
-        <mesh position={[0, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.28, 0.35, 24]} />
-          <meshBasicMaterial color="#ff3333" transparent opacity={0.7} />
-        </mesh>
-      )}
-
-      {/* Hover tooltip */}
-      {hovered && (
-        <Html distanceFactor={12} position={[0, 2.4, 0]} center>
-          <div style={{
-            background: "#07101acc", border: "1px solid #00d4ff44",
-            padding: "3px 8px", borderRadius: 4, fontSize: 11,
-            fontFamily: "monospace", color: "#00d4ff", whiteSpace: "nowrap",
-          }}>
-            {id} · {online ? `Tsys ${tsysK}K` : "OFFLINE"}
-          </div>
-        </Html>
-      )}
     </group>
   );
 }
 
+// ── Loading overlay (แสดงบน canvas ขณะ GLB load ครั้งแรก) ───────────────────
+function LoadingHud() {
+  return (
+    <Html fullscreen>
+      <div style={{
+        position:   "absolute",
+        bottom:     24,
+        left:       "50%",
+        transform:  "translateX(-50%)",
+        background: "#06101a99",
+        border:     "1px solid #00d4ff22",
+        borderRadius: 4,
+        padding:    "6px 18px",
+        fontFamily: "monospace",
+        fontSize:   11,
+        color:      "#00d4ff88",
+        letterSpacing: "0.1em",
+        pointerEvents: "none",
+      }}>
+        LOADING ANTENNA MODEL…
+      </div>
+    </Html>
+  );
+}
 
-// ── Large telescope (APEX, IRAM, etc.) ───────────────────────────────────────
-
+// ── Large telescope (APEX, IRAM etc.) — geometry เดิม ────────────────────────
 function LargeTelescope({ position, diameterM, online }) {
   const s = Math.min(diameterM / 10, 3.2);
   return (
@@ -168,9 +79,7 @@ function LargeTelescope({ position, diameterM, online }) {
   );
 }
 
-
-// ── Terrain ───────────────────────────────────────────────────────────────────
-
+// ── Terrain — geometry เดิม ───────────────────────────────────────────────────
 function Terrain() {
   const geometry = useMemo(() => {
     const geo = new THREE.PlaneGeometry(900, 900, 80, 80);
@@ -178,7 +87,6 @@ function Terrain() {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
-      // undulation เล็กน้อยให้รู้สึกเป็น plateau จริง ไม่ใช่พื้นแบน
       const h = Math.sin(x * 0.012) * Math.cos(z * 0.015) * 2.5
               + Math.sin(x * 0.033 + z * 0.028) * 0.8;
       pos.setY(i, h - 1.5);
@@ -197,9 +105,7 @@ function Terrain() {
   );
 }
 
-
 // ── Scene content ─────────────────────────────────────────────────────────────
-
 function SceneContent({ selectedId, onSelect }) {
   const snapshot = useTelemetryStore((s) => s.snapshot);
   if (!snapshot) return null;
@@ -208,10 +114,15 @@ function SceneContent({ selectedId, onSelect }) {
 
   return (
     <>
+      {/* Lighting */}
       <ambientLight intensity={0.25} color="#2a3d55" />
       <directionalLight
-        position={[100, 160, 80]} intensity={1.6} color="#fffaea" castShadow
-        shadow-mapSize-width={2048} shadow-mapSize-height={2048}
+        position={[100, 160, 80]}
+        intensity={1.6}
+        color="#fffaea"
+        castShadow
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
       />
       <pointLight position={[0, -8, 0]} intensity={0.1} color="#221a0a" />
       <hemisphereLight skyColor="#0d1a33" groundColor="#1a1208" intensity={0.4} />
@@ -219,36 +130,49 @@ function SceneContent({ selectedId, onSelect }) {
       <Stars radius={350} depth={80} count={4000} factor={2.8} fade speed={0.2} />
       <Terrain />
 
-      {alma.dishes.map((dish) => (
-        <Dish
-          key={dish.id}
-          id={dish.id}
-          position={[dish.x * WORLD_SCALE, 0, dish.z * WORLD_SCALE]}
-          azDeg={dish.az_deg}
-          elDeg={dish.el_deg}
-          online={dish.online}
-          selected={selectedId === dish.id}
-          tsysK={dish.tsys_k}
-          onSelect={onSelect}
-        />
-      ))}
+      {/* ALMA dishes — ครอบ Suspense เพื่อ handle GLB loading */}
+      <Suspense fallback={
+        // ระหว่างโหลด GLB ครั้งแรก แสดง fallback geometry ทุก dish
+        <>
+          {alma.dishes.map((dish) => (
+            <DishFallback
+              key={dish.id}
+              position={[dish.x * WORLD_SCALE, 0, dish.z * WORLD_SCALE]}
+            />
+          ))}
+          <LoadingHud />
+        </>
+      }>
+        {alma.dishes.map((dish) => (
+          <DishMesh
+            key={dish.id}
+            id={dish.id}
+            position={[dish.x * WORLD_SCALE, 0, dish.z * WORLD_SCALE]}
+            azDeg={dish.az_deg}
+            elDeg={dish.el_deg}
+            online={dish.online}
+            selected={selectedId === dish.id}
+            tsysK={dish.tsys_k}
+            diameterM={dish.diameter_m}
+            onSelect={onSelect}
+          />
+        ))}
+      </Suspense>
 
-      {large_telescopes.map((tel) => (
+      {/* Large telescopes (APEX etc.) — geometry เดิม ไม่ต้องโหลด GLB */}
+      {large_telescopes?.map((tel) => (
         <LargeTelescope
           key={tel.id}
           position={[tel.x * WORLD_SCALE, 0, tel.z * WORLD_SCALE]}
           diameterM={tel.diameter_m}
           online={tel.online}
-          name={tel.name}
         />
       ))}
     </>
   );
 }
 
-
 // ── Export ────────────────────────────────────────────────────────────────────
-
 export default function Scene({ selectedId, onSelect }) {
   return (
     <Canvas

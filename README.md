@@ -359,6 +359,7 @@ All 10 ALMA bands (B1–B10) are selectable in the control panel.
 ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 ├── client/
 │   ├── public/
+│   │   ├── alma.glb
 │   │   ├── favicon.svg
 │   │   └── icons.svg
 │   ├── src/
