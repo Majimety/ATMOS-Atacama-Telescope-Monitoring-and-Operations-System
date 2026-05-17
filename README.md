@@ -1,7 +1,11 @@
 <h1 align="center">
   <img src="client/public/ATMOS.svg" width="44" align="top" />
-  ATMOS Observatory Control & Simulation System
+  ATMOS
 </h1>
+
+<p align="center">
+  Real-time observatory simulation • Scientific-grade modeling • Production-ready architecture
+</p>
 
 # ATMOS — Atacama Telescope Monitoring and Operations System
 
@@ -10,6 +14,10 @@
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev)
 [![Three.js](https://img.shields.io/badge/Three.js-r184-black?logo=three.js)](https://threejs.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
+
+---
+
+## Overview
 
 A high-fidelity **SCADA (Supervisory Control and Data Acquisition)** simulation platform for real-time monitoring and control of radio telescope arrays at the Atacama Desert Observatory. ATMOS replicates the operational environment of ALMA (Atacama Large Millimeter/submillimeter Array) and associated facilities, incorporating physically accurate atmospheric models, interferometric science visualizations, and a production-grade WebSocket telemetry pipeline.
 
