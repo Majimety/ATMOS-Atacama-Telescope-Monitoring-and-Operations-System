@@ -1,16 +1,6 @@
-<p align="center">
-  <img src="client/public/ATMOS.svg" width="60" />
-</p>
-
-<h1 align="center">ATMOS</h1>
-
-<p align="center">
-  Atacama Telescope Monitoring and Operations System
-</p>
-
-<p align="center">
-  Real-time observatory simulation • Scientific-grade modeling • Production-ready architecture
-</p>
+<p align="center"><img src="client/public/ATMOS.svg" width="60" /></p>
+<h1 align="center">ATMOS-Atacama Telescope Monitoring and Operations System</h1>
+<p align="center">Real-time observatory simulation • Scientific-grade modeling • Production-ready architecture</p>
 
 <p align="center">
   <a href="https://python.org">
