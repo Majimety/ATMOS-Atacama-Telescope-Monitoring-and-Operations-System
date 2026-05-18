@@ -20,7 +20,7 @@
   </a>
 </p>
 
-A high-fidelity **SCADA (Supervisory Control and Data Acquisition)** simulation platform for real-time monitoring and control of radio telescope arrays at the Atacama Desert Observatory. ATMOS replicates the operational environment of ALMA (Atacama Large Millimeter/submillimeter Array), incorporating physically accurate atmospheric models, interferometric science visualizations, and a production-grade WebSocket telemetry pipeline.
+A high-fidelity **SCADA (Supervisory Control and Data Acquisition)** simulation platform for real-time monitoring and control of radio telescope arrays at the Atacama Desert Observatory. ATMOS replicates the operational environment of ALMA (Atacama Large Millimeter/submillimeter Array), incorporating physically accurate atmospheric models, interferometric science visualizations, and a production-grade WebSocket telemetry pipeline. -[Overview](#overview)
 
 ## Real-world Reference (ALMA Observatory)
 
@@ -38,21 +38,6 @@ A high-fidelity **SCADA (Supervisory Control and Data Acquisition)** simulation 
 ![ATMOS Dashboard — Scheduler panel with 3D array visualization](docs/pictures/ATMOS_Dashboard.png)
 
 > *ATMOS control interface showing 60/64 antennas online, tracking Sgr A\* at Az 183.7° El 52.4°, with 4 queued observations including an URGENT Crab Nebula job (PWV < 2mm constraint)*
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [System Architecture](#system-architecture)
-- [Physical Models](#physical-models)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [API Reference](#api-reference)
-- [Simulated Facilities](#simulated-facilities)
-- [Roadmap](#roadmap)
-- [References](#references)
 
 ---
 
