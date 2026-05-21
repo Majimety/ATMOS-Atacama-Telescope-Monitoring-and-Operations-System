@@ -459,7 +459,7 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 │   │   ├── ws/
 │   │   │   ├── __init__.py
 │   │   │   ├── events.py                 WebSocket event type constants
-│   │   │   └── obs_queue.py              WebSocket endpoint + command dispatch + scheduler/influx wiring
+│   │   │   └── telemetry.py              WebSocket endpoint + command dispatch + scheduler/influx wiring
 │   │   ├── __init__.py
 │   │   └── obs_queue.py                  Observation scheduling queue + async tick engine (singleton)
 │   ├── auth.py                           JWT authentication + RBAC (4 roles: viewer/operator/engineer/admin)
