@@ -446,7 +446,7 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 │   │   │   └── telescopes.py             GET /api/telescopes/ — antenna listing (viewer+)
 │   │   ├── models/
 │   │   │   ├── __init__.py
-│   │   │   ├── connection_pool.py              ConnectionPool — WebSocket connection manager + broadcast
+│   │   │   ├── connection_pool.py        ConnectionPool — WebSocket connection manager + broadcast
 │   │   │   └── telescope.py              Pydantic data models for antenna state
 │   │   ├── simulation/
 │   │   │   ├── __init__.py
