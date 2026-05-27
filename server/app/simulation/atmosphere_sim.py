@@ -2,15 +2,15 @@
 atmosphere_sim.py — Atmospheric opacity and PWV simulation
 ใช้เป็น fallback เมื่อ weather_fetcher ไม่สามารถดึงข้อมูลจริงได้
 """
+
 import math
 import random
 import time
 
-
 # Typical Chajnantor conditions
-_BASE_PWV = 0.5       # mm PWV baseline (excellent site)
-_BASE_WIND = 8.0      # m/s baseline wind
-_BASE_TEMP = -8.0     # °C
+_BASE_PWV = 0.5  # mm PWV baseline (excellent site)
+_BASE_WIND = 8.0  # m/s baseline wind
+_BASE_TEMP = -8.0  # °C
 
 
 def simulate_atmosphere(t: float | None = None) -> dict:
@@ -30,8 +30,9 @@ def simulate_atmosphere(t: float | None = None) -> dict:
     wind = max(0, _BASE_WIND + math.sin(t / 600) * 3 + random.gauss(0, 0.5))
     temp = _BASE_TEMP + math.sin(2 * math.pi * t / 86400) * 4 + random.gauss(0, 0.3)
 
-    # τ₂₂₅GHz ≈ 0.04 × PWV (Danese & Partridge approximation)
-    tau = max(0.01, 0.04 * pwv + random.gauss(0, 0.002))
+    # τ₂₂₅GHz ≈ 0.04 × PWV + 0.012 (Liebe 1989 / Otarola 2010 สำหรับ Chajnantor)
+    # τ_dry=0.012 (dry air at ~5058 m), B=0.040 nepers/mm (wet term at 225 GHz)
+    tau = max(0.01, 0.040 * pwv + 0.012 + random.gauss(0, 0.002))
 
     return {
         "temp_c": round(temp, 2),

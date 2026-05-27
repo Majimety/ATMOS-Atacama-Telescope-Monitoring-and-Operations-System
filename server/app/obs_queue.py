@@ -287,12 +287,18 @@ class ObservationScheduler:
     # ── State export ──────────────────────────────────────────────────────────
 
     def get_state(self) -> dict:
+        # สร้าง snapshot แบบ atomic โดย copy reference ก่อน — ป้องกัน partial read
+        # ขณะ tick() กำลัง modify _active หรือ _queue
+        active_snap = self._active
+        queue_snap = list(self._queue)
+        history_snap = list(self._history[-20:])
+
         return {
-            "active": self._active.to_dict() if self._active else None,
-            "queue": [j.to_dict() for j in self._queue],
-            "history": [j.to_dict() for j in self._history[-20:]],  # last 20
+            "active": active_snap.to_dict() if active_snap else None,
+            "queue": [j.to_dict() for j in queue_snap],
+            "history": [j.to_dict() for j in history_snap],
             "stats": {
-                "queued": len(self._queue),
+                "queued": len(queue_snap),
                 "completed": sum(
                     1 for j in self._history if j.status == JobStatus.COMPLETED
                 ),

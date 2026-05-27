@@ -271,6 +271,8 @@ class InfluxWriter:
                 logger.debug(
                     "InfluxDB: wrote %d points → %s", len(points), bucket_map[key]
                 )
+            # reset error counter เมื่อ flush สำเร็จ (INF-03)
+            self._error_count = 0
 
         except Exception as exc:
             self._error_count += 1

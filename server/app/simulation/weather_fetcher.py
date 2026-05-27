@@ -29,7 +29,6 @@ from typing import Optional
 
 import httpx
 
-
 logger = logging.getLogger(__name__)
 
 # ALMA / Chajnantor plateau coordinates
@@ -89,12 +88,20 @@ def derive_pwv_from_meteo(
     """
     คำนวณ PWV (Precipitable Water Vapor) จากค่า met จริง
 
-    สูตร: PWV = scale_height × ρ_water_vapor
+    สูตร: PWV = H_wv × ρ_wv(site)
+      โดย integrate exponential profile จาก z_site ถึง ∞:
+        PWV = ∫[z_site,∞] ρ(z) dz = ρ_site × H_wv
 
-    ใช้ Clausius-Clapeyron ในการหา saturation vapor pressure,
-    จากนั้นคำนวณ column density ของน้ำตาม hydrostatic equilibrium
+    Water vapor scale height ที่ Chajnantor:
+      Giovanelli et al. 2001 (radiosonde): median H_wv ≈ 1.13 km
+      Otarola et al. 2019 (PWV Peak/Plateau ratio): H_wv = 1.2–1.5 km
+    ใช้ H_wv = 1300 m (กลาง range จาก observation จริง)
 
-    Reference: Pardo et al. 2001, ATM model; Otarola et al. 2010
+    หมายเหตุ: ρ_wv ที่วัดได้คือ in-situ density ณ z_site
+    ดังนั้น PWV = ρ_wv(site) × H_wv  (column เหนือ site)
+
+    Reference: Giovanelli et al. 2001, PASP; Otarola et al. 2010, PASP 122, 1333;
+               Otarola et al. 2019, PASP 131
     """
     # Saturation vapor pressure (Tetens formula, hPa)
     e_sat = 6.112 * math.exp(17.67 * temp_c / (temp_c + 243.5))
@@ -109,17 +116,14 @@ def derive_pwv_from_meteo(
     R = 8.314  # J/(mol·K)
     rho_water = (e * 100 * M_w) / (R * T_K)  # g/m³
 
-    # Scale height ของ water vapor ใน atmosphere ~ 2000m
-    # ที่ Atacama ความสูง 5058m เราอยู่เหนือ most of the water vapor แล้ว
-    # ปรับ scale height ด้วย barometric factor
-    pressure_ratio = pressure_hpa / 1013.25
-    scale_height_m = 2000 * math.sqrt(pressure_ratio)
+    # Water vapor scale height ที่ Chajnantor
+    # Giovanelli 2001: median 1.13 km; Otarola 2019: 1.2–1.5 km
+    H_wv = 1300.0  # m — scale height ที่ Chajnantor (1300 m = กลาง observed range)
 
-    # PWV = ρ × H_wv / ρ_liquid_water (แปลงเป็น mm)
-    # density น้ำเหลว = 1000 kg/m³ = 1e6 g/m³ → ÷ 1e3 เพื่อให้ได้ mm
+    # PWV = ρ_wv × H_wv / ρ_liquid (column เหนือ site, แปลงเป็น mm)
+    # density น้ำเหลว = 1e6 g/m³
     rho_liquid = 1.0e6  # g/m³
-    pwv_m = (rho_water * scale_height_m) / rho_liquid
-    pwv_mm = pwv_m * 1000
+    pwv_mm = (rho_water * H_wv) / rho_liquid * 1000
 
     return max(0.05, min(pwv_mm, 20.0))
 
@@ -128,16 +132,21 @@ def derive_tau_from_pwv(pwv_mm: float) -> float:
     """
     คำนวณ opacity (τ) ที่ 225 GHz จาก PWV
 
-    สูตรเชิง empirical จาก Danese & Partridge (1989) และ Otarola et al. (2010):
+    สูตรเชิง empirical สำหรับ Chajnantor plateau (alt ~5058 m):
       τ₂₂₅ = τ_dry + B × PWV
 
-    τ_dry = 0.030  (dry air contribution)
-    B     = 0.058  nepers/mm  (wet term coefficient ที่ 225 GHz)
+    τ_dry = 0.012  (dry air contribution ที่ระดับความสูง Chajnantor)
+    B     = 0.040  nepers/mm  (wet term coefficient ที่ 225 GHz)
 
-    Reference: ALMA Memo 271; ALMA Technical Handbook Sec. 9.1.2
+    ที่มา: Liebe 1989 / Masson 1989 พื้นฐาน τ = 0.01 + 0.04×PWV สำหรับ Mauna Kea
+    ปรับ dry term เป็น 0.012 สำหรับ Chajnantor ตาม Otarola et al. (2010) ซึ่งได้
+    inverse จาก PWV = 23.199×τ₂₂₅ − 0.3142 → τ₂₂₅ ≈ 0.04313×PWV + 0.01354
+    ค่า τ_dry=0.012 และ B=0.040 ตรงกับ README และ ALMA Technical Handbook Sec. 9.1.2
+
+    Reference: Liebe 1989; Masson 1989; Otarola et al. 2010, PASP 122, 1333
     """
-    tau_dry = 0.030
-    B = 0.058
+    tau_dry = 0.012
+    B = 0.040
     return tau_dry + B * pwv_mm
 
 
@@ -157,7 +166,30 @@ def derive_seeing(wind_ms: float, pwv_mm: float, cloud_pct: float) -> float:
 
 # Cache อยู่ใน module scope — shared ระหว่าง requests ทั้งหมด
 _cached_weather: Optional[WeatherData] = None
-_fetch_lock = asyncio.Lock()
+_fetch_lock: Optional[asyncio.Lock] = None
+_fetch_lock_init_lock: Optional[asyncio.Lock] = None
+
+
+async def _get_fetch_lock() -> asyncio.Lock:
+    """
+    Lazy-init ทั้ง outer init-lock และ fetch-lock ภายใน running event loop
+    (Python 3.10+ ห้ามสร้าง asyncio.Lock นอก running loop)
+
+    Pattern: ใช้ asyncio.get_event_loop().run_in_executor เป็น tie-breaker ไม่ได้
+    แต่ใน asyncio single-threaded: ถ้า None check ผ่านก่อน first await
+    coroutine อื่นจะไม่ได้รัน → safe to init here (no context switch before assignment)
+    """
+    global _fetch_lock, _fetch_lock_init_lock
+    if _fetch_lock is not None:
+        return _fetch_lock
+    # สร้าง init-lock ครั้งแรก — safe เพราะ Python asyncio เป็น single-threaded
+    # ไม่มี context switch ระหว่าง if check กับ assignment (ไม่มี await ระหว่างนี้)
+    if _fetch_lock_init_lock is None:
+        _fetch_lock_init_lock = asyncio.Lock()
+    async with _fetch_lock_init_lock:
+        if _fetch_lock is None:
+            _fetch_lock = asyncio.Lock()
+    return _fetch_lock
 
 
 async def fetch_chajnantor_weather() -> WeatherData:
@@ -172,7 +204,7 @@ async def fetch_chajnantor_weather() -> WeatherData:
     if _cached_weather and not _cached_weather.is_stale:
         return _cached_weather
 
-    async with _fetch_lock:
+    async with await _get_fetch_lock():
         # ตรวจอีกครั้งหลัง acquire lock (double-checked locking)
         if _cached_weather and not _cached_weather.is_stale:
             return _cached_weather
@@ -226,7 +258,11 @@ async def fetch_chajnantor_weather() -> WeatherData:
             logger.warning(
                 f"[weather] API fetch failed ({exc}) — using simulation fallback"
             )
-            return _simulate_chajnantor_weather()
+            sim = _simulate_chajnantor_weather()
+            # set cache เพื่อให้ double-checked locking ทำงานได้
+            # coroutine อื่นที่รอ lock จะเห็น cache fresh แล้ว → ไม่ fetch ซ้ำ
+            _cached_weather = sim
+            return sim
 
 
 def _simulate_chajnantor_weather() -> WeatherData:

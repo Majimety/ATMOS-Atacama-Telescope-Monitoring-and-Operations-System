@@ -1,6 +1,7 @@
 """
 atmosphere.py — REST endpoint สำหรับอ่าน atmospheric data
 """
+
 from fastapi import APIRouter
 from app.simulation.weather_fetcher import fetch_chajnantor_weather
 from app.simulation.atmosphere_sim import simulate_atmosphere
@@ -8,6 +9,7 @@ from app.simulation.atmosphere_sim import simulate_atmosphere
 router = APIRouter(prefix="/api/atmosphere", tags=["atmosphere"])
 
 
+@router.get("/")
 @router.get("/current")
 async def get_atmosphere():
     """

@@ -100,8 +100,8 @@ async def telemetry_endpoint(ws: WebSocket):
             # 3. Write to InfluxDB (fire-and-forget style, errors are swallowed)
             asyncio.ensure_future(influx_writer.write(snapshot))
 
-            # 4. Send to this client
-            await ws.send_text(json.dumps(snapshot, default=str))
+            # 4. Broadcast to ALL connected clients via pool
+            await pool.broadcast(snapshot)
 
             # 5. Listen for command (1s window)
             try:
@@ -130,6 +130,9 @@ def _handle_command(command: dict):
         az = float(command.get("az", 183.7))
         el = float(command.get("el", 52.4))
         name = command.get("target_name", "Custom")
+        # WS-03: validate และ clamp ก่อนส่ง — defense in depth
+        az = az % 360.0  # normalize 0–360°
+        el = max(5.0, min(85.0, el))  # clamp ตาม ALMA spec (12m antenna)
         cmd_slew(az, el, name)
         logger.info(f"SLEW → Az:{az}° El:{el}° ({name})")
 

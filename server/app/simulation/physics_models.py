@@ -5,7 +5,7 @@ physics_models.py — Physical models จริงสำหรับ ALMA simula
 """
 
 import math
-
+import random  # ย้ายขึ้น module level (PTG-05: ไม่ควร import ซ้ำใน method body)
 
 # ── Airmass calculation ───────────────────────────────────────────────────────
 
@@ -173,8 +173,6 @@ class DishPointing:
         """
         if self.state == "tracking":
             # Tracking noise — สมจริงตาม ALMA spec 0.6 arcsec RMS
-            import math, random
-
             phase = hash(self.dish_id) % 1000
             az_err = math.sin(t * 0.1 + phase) * self._tracking_noise_amp * 0.5
             el_err = math.cos(t * 0.13 + phase + 1) * self._tracking_noise_amp * 0.5
@@ -214,8 +212,6 @@ class DishPointing:
             if self.settle_timer <= 0:
                 self.state = "tracking"
             # ขณะ settling ยังมี residual error เล็กน้อย
-            import random
-
             residual = (self.settle_timer / ALMA_SETTLE_TIME_S) * 0.01
             return (
                 round(self.az_actual + random.gauss(0, residual), 4),

@@ -29,7 +29,9 @@ class PointingController:
 
     def command_slew(self, az: float, el: float):
         self.target_az = max(0.0, min(360.0, az))
-        self.target_el = max(5.0, min(89.0, el))
+        self.target_el = max(
+            5.0, min(85.0, el)
+        )  # ตรงกับ DishPointing และ ALMA spec (12m antenna)
         self.is_stowing = False
         self.mode = "slewing"
 

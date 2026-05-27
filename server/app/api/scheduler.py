@@ -54,9 +54,11 @@ _PRIORITY_MAP = {
 
 
 @router.get("")
-async def get_scheduler_state():
+async def get_scheduler_state(
+    _user: User = Depends(require_role(Role.VIEWER)),
+):
     """Return current queue, active job, history, and stats.
-    Readable by any authenticated role."""
+    Readable by any authenticated role (viewer+)."""
     return scheduler.get_state()
 
 
@@ -113,7 +115,7 @@ async def skip_active_job(
     user: User = Depends(require_role(Role.OPERATOR)),
 ):
     """Skip (abort) the currently running job. Requires operator+."""
-    if scheduler._active is None:
+    if scheduler.get_state()["active"] is None:
         raise HTTPException(status_code=404, detail="No active job to skip")
     await scheduler.skip_active()
     return {"status": "skipped"}

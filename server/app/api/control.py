@@ -161,5 +161,9 @@ def get_pointing(
 
     Read-only endpoint; accessible to all authenticated roles.
     """
-    az, el, mode = controller.step()
-    return {"az": az, "el": el, "mode": mode}
+    # PTG-06: อ่าน state โดยตรงจาก property เพื่อหลีกเลี่ยง side effect บน read endpoint
+    return {
+        "az": round(controller.current_az, 3),
+        "el": round(controller.current_el, 3),
+        "mode": controller.mode,
+    }

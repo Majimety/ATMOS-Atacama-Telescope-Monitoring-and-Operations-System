@@ -23,6 +23,7 @@ Setup:
 
 import os
 import enum
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -35,9 +36,18 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 
 # ─── Config ────────────────────────────────────────────────────────────────
-SECRET_KEY = os.getenv(
-    "ATMOS_SECRET_KEY", "change-this-in-production-use-openssl-rand-hex-32"
-)
+logger = logging.getLogger(__name__)
+
+_DEFAULT_SECRET = "change-this-in-production-use-openssl-rand-hex-32"
+SECRET_KEY = os.getenv("ATMOS_SECRET_KEY", _DEFAULT_SECRET)
+
+# AUTH-04: ถ้าใช้ default key ให้ warn — ใครที่รู้ default สามารถ forge JWT ได้
+if SECRET_KEY == _DEFAULT_SECRET:
+    logger.warning(
+        "SECURITY WARNING: Using default ATMOS_SECRET_KEY. "
+        "Set ATMOS_SECRET_KEY env var in production: "
+        "export ATMOS_SECRET_KEY=$(openssl rand -hex 32)"
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ATMOS_ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 REFRESH_TOKEN_EXPIRE_DAYS = 7
