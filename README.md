@@ -465,6 +465,7 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 │   ├── auth.py                           JWT authentication + RBAC (4 roles: viewer/operator/engineer/admin)
 │   ├── Dockerfile
 │   ├── influx_writer.py                  InfluxDB async batch writer (lazy init, auto-disable, persistent client)
+│   ├── test_atmos.py                     pytest test suite (43 cases covering PHY/WTH/PTG/AUTH/SCH/WS/API/INF)
 │   ├── main.py                           FastAPI application + WebSocket endpoint + legacy REST shims
 │   └── requirements.txt
 ├── .env.example                          Environment variable template
@@ -630,7 +631,7 @@ Click to expand and view direct access links to each file.
 3. Pardo, J. R., Cernicharo, J. and Serabyn, E. (2001). "Atmospheric transmission at microwaves (ATM): an improved model for millimeter/submillimeter applications." *IEEE Transactions on Antennas and Propagation*, 49(12), 1683–1694.
 4. Otarola, A. et al. (2010). "Precipitable Water Vapor, Temperature, and Wind Statistics At Sites Suitable for mm and Submm Wavelength Astronomy in Northern Chile." *PASP*, 122(897), 1333. [doi:10.1086/657267](https://doi.org/10.1086/657267)
 5. Thompson, A. R., Moran, J. M. and Swenson, G. W. (2017). *Interferometry and Synthesis in Radio Astronomy*, 3rd ed. Springer. ISBN 978-3-319-44431-4.
-
+6. Giovanelli, R. et al. (2001). "The CCAT Site: Precipitable Water Vapor Statistics." PASP.
 ---
 
 ## License

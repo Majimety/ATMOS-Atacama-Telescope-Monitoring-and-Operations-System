@@ -160,3 +160,8 @@ influx/data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
