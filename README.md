@@ -513,6 +513,8 @@ Click to expand and view direct access links to each file.
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/influx_writer.py  
 - requirements.txt  
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/requirements.txt  
+- test_atmos.py  
+  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/test_atmos.py
 - Dockerfile  
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/Dockerfile  
 
