@@ -447,7 +447,6 @@ ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 │   │   ├── models/
 │   │   │   ├── __init__.py
 │   │   │   ├── connection_pool.py        ConnectionPool — WebSocket connection manager + broadcast
-│   │   │   └── telescope.py              Pydantic data models for antenna state
 │   │   ├── simulation/
 │   │   │   ├── __init__.py
 │   │   │   ├── alma_positions.py         Real ALMA C43-5 pad coordinates (ENU metres)
@@ -518,9 +517,7 @@ Click to expand and view direct access links to each file.
 - Dockerfile  
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/Dockerfile  
 
-**Models**
-- telescope.py  
-  https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/models/telescope.py  
+**Models** 
 - connection_pool.py  
   https://raw.githubusercontent.com/Majimety/ATMOS-Atacama-Telescope-Monitoring-and-Operations-System/main/server/app/models/connection_pool.py  
 
