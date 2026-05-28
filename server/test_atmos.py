@@ -18,14 +18,12 @@ sys.path.insert(0, os.path.dirname(__file__))
 # PHY — Physics Models
 # =============================================================================
 
-
 class TestPhysics:
 
     # PHY-01: Airmass at elevation 90°
     def test_PHY01_airmass_zenith(self):
         """el=90° → airmass ≈ 1 (0.99–1.01)"""
         from app.simulation.physics_models import airmass
-
         X = airmass(90.0)
         assert 0.99 <= X <= 1.01, (
             f"PHY-01 FAIL: airmass(90°) = {X}, expected 0.99–1.01\n"
@@ -36,7 +34,6 @@ class TestPhysics:
     def test_PHY02_airmass_horizon(self):
         """el=1° → airmass ≈ 26–32 ตาม Kasten-Young 1989"""
         from app.simulation.physics_models import airmass
-
         X = airmass(1.0)
         assert 26 <= X <= 32, (
             f"PHY-02 FAIL: airmass(1°) = {X}, expected 26–32 (Kasten-Young 1989 Table 1)\n"
@@ -48,7 +45,6 @@ class TestPhysics:
     def test_PHY03_tsys_band6_nominal(self):
         """Band 6, PWV ดี (tau=0.050), el=52.4° → Tsys ≈ 58–72 K"""
         from app.simulation.physics_models import compute_tsys
-
         tsys = compute_tsys(6, 0.050, 52.4)
         assert 58 <= tsys <= 72, (
             f"PHY-03 FAIL: Tsys(B6, tau=0.050, el=52.4°) = {tsys} K, expected 58–72 K\n"
@@ -60,7 +56,6 @@ class TestPhysics:
     def test_PHY04_tsys_band9_high_pwv(self):
         """Band 9, tau=0.15, el=45° → Tsys > 250 K"""
         from app.simulation.physics_models import compute_tsys
-
         tsys = compute_tsys(9, 0.15, 45.0)
         assert tsys > 250, (
             f"PHY-04 FAIL: Tsys(B9, tau=0.15, el=45°) = {tsys} K, expected > 250 K\n"
@@ -72,7 +67,6 @@ class TestPhysics:
     def test_PHY05_cmb_term_present(self):
         """Band 1, tau≈0, el=89° → Tsys ≈ 28.5–29.0 K (T_rx + CMB)"""
         from app.simulation.physics_models import compute_tsys
-
         tsys = compute_tsys(1, 0.001, 89.0)
         assert 28.5 <= tsys <= 29.0, (
             f"PHY-05 FAIL: Tsys(B1, tau≈0, el=89°) = {tsys} K, expected 28.5–29.0 K\n"
@@ -84,7 +78,6 @@ class TestPhysics:
     def test_PHY06_signal_level_vs_elevation(self):
         """dBm(el=10°) < dBm(el=60°) — ต้องต่างกัน > 1 dB"""
         from app.simulation.physics_models import compute_signal_level_dbm
-
         dbm_low = compute_signal_level_dbm(80, 10, 6)
         dbm_high = compute_signal_level_dbm(80, 60, 6)
         assert dbm_low < dbm_high, (
@@ -92,34 +85,34 @@ class TestPhysics:
             "  ต้อง monotonic: elevation ต่ำ → airmass สูง → sensitivity ลด → dBm ต่ำ"
         )
         diff = dbm_high - dbm_low
-        assert diff > 1.0, f"PHY-06 FAIL: ต่างกันแค่ {diff:.2f} dB, expected > 1 dB"
+        assert diff > 1.0, (
+            f"PHY-06 FAIL: ต่างกันแค่ {diff:.2f} dB, expected > 1 dB"
+        )
 
     # PHY-07: ALMA_TAU_SCALE Band 10 must be maximum
     def test_PHY07_tau_scale_band10_max(self):
         """tau_scale[10]=4.0 ต้องเป็น max; tau_scale[1]=0.06 ต้องเป็น min"""
         from app.simulation.physics_models import ALMA_TAU_SCALE
-
         max_band = max(ALMA_TAU_SCALE, key=ALMA_TAU_SCALE.get)
         min_band = min(ALMA_TAU_SCALE, key=ALMA_TAU_SCALE.get)
-        assert (
-            ALMA_TAU_SCALE[10] == 4.0
-        ), f"PHY-07 FAIL: tau_scale[10]={ALMA_TAU_SCALE[10]}, expected 4.0"
+        assert ALMA_TAU_SCALE[10] == 4.0, (
+            f"PHY-07 FAIL: tau_scale[10]={ALMA_TAU_SCALE[10]}, expected 4.0"
+        )
         assert max_band == 10, (
             f"PHY-07 FAIL: max tau_scale is band {max_band}={ALMA_TAU_SCALE[max_band]}, expected band 10=4.0\n"
             "  Band 10 (787-950 GHz) ใกล้ water line → most opaque"
         )
-        assert (
-            ALMA_TAU_SCALE[1] == 0.06
-        ), f"PHY-07 FAIL: tau_scale[1]={ALMA_TAU_SCALE[1]}, expected 0.06"
-        assert (
-            min_band == 1
-        ), f"PHY-07 FAIL: min tau_scale is band {min_band}, expected band 1"
+        assert ALMA_TAU_SCALE[1] == 0.06, (
+            f"PHY-07 FAIL: tau_scale[1]={ALMA_TAU_SCALE[1]}, expected 0.06"
+        )
+        assert min_band == 1, (
+            f"PHY-07 FAIL: min tau_scale is band {min_band}, expected band 1"
+        )
 
     # PHY-08: airmass at el=0° — no crash, return > 20
     def test_PHY08_airmass_zero_elevation(self):
         """el=0° → ไม่ crash, return > 20 (clipped to 1°)"""
         from app.simulation.physics_models import airmass
-
         try:
             X = airmass(0.0)
         except Exception as e:
@@ -134,7 +127,6 @@ class TestPhysics:
 # WTH — Weather
 # =============================================================================
 
-
 class TestWeather:
 
     # WTH-01: tau formula inconsistency across 3 files
@@ -147,34 +139,27 @@ class TestWeather:
         ทั้งหมดต้องให้ค่าใกล้กันที่ PWV=1.0 mm (±10%)
         """
         pwv = 1.0
-        readme_tau = 0.04 * pwv + 0.012  # = 0.052 (README / ALMA spec)
+        readme_tau = 0.04 * pwv + 0.012   # = 0.052 (README / ALMA spec)
 
         # ค่าจาก weather_fetcher จริง
         from app.simulation.weather_fetcher import derive_tau_from_pwv
-
         actual_fetcher_tau = derive_tau_from_pwv(pwv)
 
         # ค่าจาก atmosphere_sim — อ่าน formula โดยตรงจาก source
         import ast, inspect
         from app.simulation import atmosphere_sim
-
         src = inspect.getsource(atmosphere_sim.simulate_atmosphere)
         # หา coefficient ของ pwv ในบรรทัด tau
         # รองรับทั้ง "0.04 * pwv + 0.012" และ "0.040 * pwv + 0.012"
         import re
-
         m = re.search(r"([\d.]+)\s*\*\s*pwv\s*\+\s*([\d.]+)", src)
         if m:
             sim_tau = float(m.group(1)) * pwv + float(m.group(2))
         else:
             # fallback: รัน function จริงหลายครั้งแล้วเฉลี่ย (ลบ noise)
             import random as _rand
-
             _rand.seed(42)
-            vals = [
-                atmosphere_sim.simulate_atmosphere(t=0.0)["tau_225ghz"]
-                for _ in range(50)
-            ]
+            vals = [atmosphere_sim.simulate_atmosphere(t=0.0)["tau_225ghz"] for _ in range(50)]
             sim_tau = sum(vals) / len(vals)
 
         # ทั้งสามต้องอยู่ใน ±10% ของ README formula
@@ -202,7 +187,6 @@ class TestWeather:
         ต้องใช้ RH ที่ realistic สำหรับ winter operations (~10–20%)
         """
         from app.simulation.weather_fetcher import derive_pwv_from_meteo
-
         # Typical Chajnantor winter: T=-8°C, RH=14%, P=542 hPa
         # → PWV ≈ 0.5 mm (Otarola 2010 winter median)
         pwv = derive_pwv_from_meteo(-8.0, 14.0, 542.0)
@@ -227,7 +211,6 @@ class TestWeather:
         async def run():
             # ใช้ monkeypatch ให้ httpx raise exception
             import httpx
-
             original_get = httpx.AsyncClient.get
 
             async def mock_get(self, url, **kwargs):
@@ -264,9 +247,7 @@ class TestWeather:
 
         async def run():
             # Force stale cache และ reset lock ภายใน event loop ที่กำลังรัน
-            wf._cached_weather = wf.WeatherData(
-                source="cached", fetched_at=time.time() - 999
-            )
+            wf._cached_weather = wf.WeatherData(source="cached", fetched_at=time.time() - 999)
             wf._fetch_lock = None  # force re-create ภายใน running loop
 
             original_get = httpx.AsyncClient.get
@@ -299,9 +280,8 @@ class TestWeather:
     def test_WTH05_seeing_wind_effect(self):
         """seeing(wind=20, PWV=2.0) > seeing(wind=5, PWV=0.5) > 0.3 arcsec"""
         from app.simulation.weather_fetcher import derive_seeing
-
         seeing_good = derive_seeing(5, 0.5, 0)
-        seeing_bad = derive_seeing(20, 2.0, 50)
+        seeing_bad  = derive_seeing(20, 2.0, 50)
         diff = seeing_bad - seeing_good
         assert diff > 0.3, (
             f"WTH-05 FAIL: seeing difference = {diff:.2f} arcsec, expected > 0.3\n"
@@ -313,7 +293,6 @@ class TestWeather:
     def test_WTH06_humidity_pct_range(self):
         """atmosphere_sim: PWV=2.0 → humidity_pct = 16% ซึ่งสูงกว่า Chajnantor จริง (1–10%)"""
         from app.simulation.atmosphere_sim import simulate_atmosphere
-
         # ใช้ fixed t ที่ให้ PWV สูง
         result = simulate_atmosphere(t=43200.0)  # t ที่ให้ diurnal ≈ max
         humidity = result["humidity_pct"]
@@ -331,7 +310,6 @@ class TestWeather:
 # =============================================================================
 # PTG — Pointing
 # =============================================================================
-
 
 class TestPointing:
 
@@ -359,15 +337,14 @@ class TestPointing:
         ซึ่งทำให้ state ไม่ sync กัน (known architecture issue)
         """
         import inspect
-
         control_path = os.path.join(
             os.path.dirname(__file__), "app", "api", "control.py"
         )
-        with open(control_path) as f:
+        with open(control_path, encoding="utf-8") as f:
             source = f.read()
 
-        uses_cmd_slew = "cmd_slew" in source  # → DishPointing
-        uses_controller = "controller" in source  # → PointingController
+        uses_cmd_slew  = "cmd_slew" in source        # → DishPointing
+        uses_controller = "controller" in source      # → PointingController
 
         assert uses_cmd_slew and uses_controller, (
             "PTG-02 INFO: ไม่พบการใช้งาน dual controller ใน control.py\n"
@@ -377,18 +354,14 @@ class TestPointing:
         # ตรวจว่า health endpoint ใช้ controller.step() (side effect on read)
         # ต้องตรวจเฉพาะ function body ของ health() ไม่ใช่ทั้งไฟล์
         main_path = os.path.join(os.path.dirname(__file__), "main.py")
-        with open(main_path) as f:
+        with open(main_path, encoding="utf-8") as f:
             main_src = f.read()
 
         import ast as _ast
-
         tree = _ast.parse(main_src)
         health_uses_step = False
         for node in _ast.walk(tree):
-            if (
-                isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
-                and node.name == "health"
-            ):
+            if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)) and node.name == "health":
                 fn_src = _ast.get_source_segment(main_src, node) or ""
                 if "controller.step()" in fn_src:
                     health_uses_step = True
@@ -408,9 +381,9 @@ class TestPointing:
         # Test max elevation clipping
         dish = DishPointing("TEST")
         dish.command_slew(0, 999)  # over limit
-        assert (
-            dish.el_target == 85.0
-        ), f"PTG-03: DishPointing max el = {dish.el_target}°, expected 85°"
+        assert dish.el_target == 85.0, (
+            f"PTG-03: DishPointing max el = {dish.el_target}°, expected 85°"
+        )
 
         ctrl = PointingController()
         ctrl.command_slew(0, 999)
@@ -490,18 +463,14 @@ class TestPointing:
         control_path = os.path.join(
             os.path.dirname(__file__), "app", "api", "control.py"
         )
-        with open(control_path) as f:
+        with open(control_path, encoding="utf-8") as f:
             source = f.read()
 
         import ast as _ast
-
         tree = _ast.parse(source)
         get_pointing_uses_step = False
         for node in _ast.walk(tree):
-            if (
-                isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef))
-                and "pointing" in node.name.lower()
-            ):
+            if isinstance(node, (_ast.FunctionDef, _ast.AsyncFunctionDef)) and "pointing" in node.name.lower():
                 fn_src = _ast.get_source_segment(source, node) or ""
                 if "step()" in fn_src:
                     get_pointing_uses_step = True
@@ -517,7 +486,6 @@ class TestPointing:
 # AUTH — Authentication & RBAC
 # =============================================================================
 
-
 class TestAuth:
 
     # AUTH-01: Double authentication in WebSocket path
@@ -529,7 +497,7 @@ class TestAuth:
         telemetry_path = os.path.join(
             os.path.dirname(__file__), "app", "ws", "telemetry.py"
         )
-        with open(telemetry_path) as f:
+        with open(telemetry_path, encoding="utf-8") as f:
             source = f.read()
 
         has_double_auth = "ws_authenticate" in source
@@ -545,7 +513,7 @@ class TestAuth:
         pool_path = os.path.join(
             os.path.dirname(__file__), "app", "models", "connection_pool.py"
         )
-        with open(pool_path) as f:
+        with open(pool_path, encoding="utf-8") as f:
             source = f.read()
 
         has_server_prefix = "from server." in source or "import server." in source
@@ -570,7 +538,7 @@ class TestAuth:
 
         imports_found = {}
         for name, path in files_to_check.items():
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 src = f.read()
             if "scheduler" in src:
                 for line in src.splitlines():
@@ -581,34 +549,27 @@ class TestAuth:
         # ตรวจว่าไม่มี server.app prefix
         bad_imports = {k: v for k, v in imports_found.items() if "server." in v}
         assert not bad_imports, (
-            f"AUTH-03 FAIL: พบ import path ผิดใน:\n"
-            + "\n".join(f"  {k}: {v}" for k, v in bad_imports.items())
-            + "\n  FIX: ใช้ 'from app.obs_queue import scheduler' ทุกที่"
+            f"AUTH-03 FAIL: พบ import path ผิดใน:\n" +
+            "\n".join(f"  {k}: {v}" for k, v in bad_imports.items()) +
+            "\n  FIX: ใช้ 'from app.obs_queue import scheduler' ทุกที่"
         )
 
     # AUTH-04: Default SECRET_KEY warning
     def test_AUTH04_secret_key_default(self):
         """ถ้าใช้ default SECRET_KEY ควร warn หรือ raise ใน production mode"""
         from auth import SECRET_KEY
-
         DEFAULT_KEY = "change-this-in-production-use-openssl-rand-hex-32"
 
         is_default = SECRET_KEY == DEFAULT_KEY
 
         # ตรวจว่า code มี warning mechanism
         auth_path = os.path.join(os.path.dirname(__file__), "auth.py")
-        with open(auth_path) as f:
+        with open(auth_path, encoding="utf-8") as f:
             auth_src = f.read()
 
         has_warning = any(
             keyword in auth_src
-            for keyword in [
-                "WARNING",
-                "warning",
-                "WARN",
-                "logger.warn",
-                "raise ValueError",
-            ]
+            for keyword in ["WARNING", "warning", "WARN", "logger.warn", "raise ValueError"]
         )
 
         assert has_warning, (
@@ -624,11 +585,10 @@ class TestAuth:
         scheduler_api_path = os.path.join(
             os.path.dirname(__file__), "app", "api", "scheduler.py"
         )
-        with open(scheduler_api_path) as f:
+        with open(scheduler_api_path, encoding="utf-8") as f:
             source = f.read()
 
         import ast
-
         tree = ast.parse(source)
 
         get_endpoint_has_auth = False
@@ -636,9 +596,7 @@ class TestAuth:
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 if "scheduler_state" in node.name or "get_scheduler" in node.name:
                     func_src = ast.get_source_segment(source, node)
-                    if func_src and (
-                        "require_role" in func_src or "Depends" in func_src
-                    ):
+                    if func_src and ("require_role" in func_src or "Depends" in func_src):
                         get_endpoint_has_auth = True
 
         assert get_endpoint_has_auth, (
@@ -656,9 +614,7 @@ class TestAuth:
         from datetime import datetime, timedelta, timezone
 
         # สร้าง access token
-        expire = datetime.now(timezone.utc) + timedelta(
-            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         payload = {
             "sub": "testuser",
             "type": "access",
@@ -675,51 +631,33 @@ class TestAuth:
             "  token type validation ต้องป้องกันการนำ access token มาใช้เป็น refresh token"
         )
         # ยืนยัน refresh endpoint จะ reject
-        assert (
-            token_type == "access"
-        ), f"AUTH-06: token type = '{token_type}' (expected 'access')"
+        assert token_type == "access", (
+            f"AUTH-06: token type = '{token_type}' (expected 'access')"
+        )
 
 
 # =============================================================================
 # SCH — Scheduler
 # =============================================================================
 
-
 class TestScheduler:
 
     # SCH-01: Queue scan skips blocked job[0], starts job[1]
     def test_SCH01_queue_skip_blocked_job(self):
         """queue=[job_A(PWV too high), job_B(ok)] → job_B ถูก start"""
-        from app.obs_queue import (
-            ObservationScheduler,
-            ObservationJob,
-            JobPriority,
-            JobStatus,
-        )
+        from app.obs_queue import ObservationScheduler, ObservationJob, JobPriority, JobStatus
 
         sched = ObservationScheduler()
         sched._queue.clear()
         sched._active = None
 
         job_a = ObservationJob(
-            "Blocked Job",
-            "00h",
-            "00d",
-            0,
-            45,
-            6,
-            100,
+            "Blocked Job", "00h", "00d", 0, 45, 6, 100,
             max_pwv_mm=0.1,  # ต้องการ PWV < 0.1 → blocked
             priority=JobPriority.HIGH,
         )
         job_b = ObservationJob(
-            "OK Job",
-            "00h",
-            "00d",
-            0,
-            45,
-            6,
-            100,
+            "OK Job", "00h", "00d", 0, 45, 6, 100,
             max_pwv_mm=5.0,  # PWV limit สูง → ok
             priority=JobPriority.NORMAL,
         )
@@ -731,28 +669,27 @@ class TestScheduler:
 
         asyncio.get_event_loop().run_until_complete(run())
 
-        assert (
-            sched._active is not None
-        ), "SCH-01 FAIL: ไม่มี active job ทั้งที่ job_B ควรเริ่มได้"
+        assert sched._active is not None, (
+            "SCH-01 FAIL: ไม่มี active job ทั้งที่ job_B ควรเริ่มได้"
+        )
         assert sched._active.target_name == "OK Job", (
             f"SCH-01 FAIL: active job = '{sched._active.target_name}', expected 'OK Job'\n"
             "  scheduler ต้อง iterate ทั้ง queue ไม่ใช่แค่ queue[0]\n"
             "  job_A blocked (PWV) → ข้าม → เริ่ม job_B"
         )
         # job_A ยังอยู่ใน queue พร้อม skip_reason
-        assert (
-            len(sched._queue) == 1
-        ), f"SCH-01 FAIL: queue มี {len(sched._queue)} jobs, expected 1 (job_A ยังอยู่)"
-        assert (
-            sched._queue[0].skip_reason is not None
-        ), "SCH-01 FAIL: job_A ไม่มี skip_reason"
+        assert len(sched._queue) == 1, (
+            f"SCH-01 FAIL: queue มี {len(sched._queue)} jobs, expected 1 (job_A ยังอยู่)"
+        )
+        assert sched._queue[0].skip_reason is not None, (
+            "SCH-01 FAIL: job_A ไม่มี skip_reason"
+        )
 
     # SCH-02: scheduler import path exists
     def test_SCH02_scheduler_import_path(self):
         """app.scheduler หรือ app.obs_queue ต้อง importable"""
         try:
             from app.obs_queue import scheduler
-
             assert scheduler is not None
         except ImportError as e:
             pytest.fail(
@@ -767,7 +704,7 @@ class TestScheduler:
         scheduler_api_path = os.path.join(
             os.path.dirname(__file__), "app", "api", "scheduler.py"
         )
-        with open(scheduler_api_path) as f:
+        with open(scheduler_api_path, encoding="utf-8") as f:
             source = f.read()
 
         uses_private_active = "scheduler._active" in source
@@ -787,10 +724,12 @@ class TestScheduler:
         sched._queue.clear()
 
         low_job = ObservationJob(
-            "Low Job", "0h", "0d", 0, 45, 6, 60, priority=JobPriority.LOW
+            "Low Job", "0h", "0d", 0, 45, 6, 60,
+            priority=JobPriority.LOW
         )
         urgent_job = ObservationJob(
-            "Urgent Job", "0h", "0d", 0, 45, 6, 60, priority=JobPriority.URGENT
+            "Urgent Job", "0h", "0d", 0, 45, 6, 60,
+            priority=JobPriority.URGENT
         )
         sched._queue = [low_job, urgent_job]
         sched._sort_queue()
@@ -833,7 +772,6 @@ class TestScheduler:
 # WS — WebSocket
 # =============================================================================
 
-
 class TestWebSocket:
 
     # WS-01: broadcast dead connection removal
@@ -859,9 +797,9 @@ class TestWebSocket:
         asyncio.get_event_loop().run_until_complete(run())
 
         assert live_ws in pool._connections, "WS-01 FAIL: live ws ถูกลบออกโดยไม่ควร"
-        assert (
-            dead_ws not in pool._connections
-        ), "WS-01 FAIL: dead ws ไม่ถูกลบออกจาก pool"
+        assert dead_ws not in pool._connections, (
+            "WS-01 FAIL: dead ws ไม่ถูกลบออกจาก pool"
+        )
 
     # WS-02: telemetry loop sends to single client, not broadcast
     def test_WS02_telemetry_single_client_model(self):
@@ -869,7 +807,7 @@ class TestWebSocket:
         telemetry_path = os.path.join(
             os.path.dirname(__file__), "app", "ws", "telemetry.py"
         )
-        with open(telemetry_path) as f:
+        with open(telemetry_path, encoding="utf-8") as f:
             source = f.read()
 
         uses_pool_broadcast = "pool.broadcast(" in source
@@ -891,19 +829,17 @@ class TestWebSocket:
 
         # ตรวจว่า DishPointing clamp el ไว้ที่ min 5°
         from app.simulation.physics_models import DishPointing
-
         dish = DishPointing("TEST")
         dish.command_slew(999, -999)
-        assert (
-            dish.el_target >= 5.0
-        ), f"WS-03 FAIL: DishPointing ไม่ clamp el=-999 → el_target={dish.el_target}"
-        assert dish.az_target == (
-            999 % 360
-        ), f"WS-03 FAIL: DishPointing ไม่ normalize az=999 → az_target={dish.az_target}"
+        assert dish.el_target >= 5.0, (
+            f"WS-03 FAIL: DishPointing ไม่ clamp el=-999 → el_target={dish.el_target}"
+        )
+        assert dish.az_target == (999 % 360), (
+            f"WS-03 FAIL: DishPointing ไม่ normalize az=999 → az_target={dish.az_target}"
+        )
 
         # ตรวจว่า _handle_command handler มี validation
         import inspect
-
         handler_src = inspect.getsource(_handle_command)
         has_validation = any(
             kw in handler_src for kw in ["clamp", "max(", "min(", "assert", "validate"]
@@ -942,7 +878,6 @@ class TestWebSocket:
 # API — REST Endpoints
 # =============================================================================
 
-
 class TestAPI:
 
     # API-01: GET /{dish_id} returns tuple not HTTPException
@@ -952,8 +887,8 @@ class TestAPI:
         from app.api import telescopes
 
         source = inspect.getsource(telescopes.get_telescope)
-        returns_tuple = "return {" in source and "}, 404" in source
-        uses_http_exception = "HTTPException" in source and "404" in source
+        returns_tuple = 'return {' in source and '}, 404' in source
+        uses_http_exception = 'HTTPException' in source and '404' in source
 
         assert not returns_tuple or uses_http_exception, (
             "API-01 FAIL: get_telescope() ใช้ 'return {...}, 404' แทน HTTPException!\n"
@@ -965,16 +900,13 @@ class TestAPI:
     def test_API02_duplicate_scheduler_routes(self):
         """main.py ไม่ควรมี inline scheduler routes ถ้า scheduler router ถูก include แล้ว"""
         main_path = os.path.join(os.path.dirname(__file__), "main.py")
-        with open(main_path) as f:
+        with open(main_path, encoding="utf-8") as f:
             main_src = f.read()
 
-        has_inline_scheduler = (
-            '@app.post("/api/scheduler' in main_src
-            or '@app.get("/api/scheduler' in main_src
-        )
-        has_router_include = (
-            "scheduler_api.router" in main_src or "include_router(scheduler" in main_src
-        )
+        has_inline_scheduler = '@app.post("/api/scheduler' in main_src or \
+                               '@app.get("/api/scheduler' in main_src
+        has_router_include = 'scheduler_api.router' in main_src or \
+                             'include_router(scheduler' in main_src
 
         assert not has_inline_scheduler, (
             "API-02 FAIL: main.py มี inline scheduler routes!\n"
@@ -1006,7 +938,7 @@ class TestAPI:
     def test_API04_legacy_endpoints_no_auth(self):
         """POST /api/slew, /api/stow ไม่มี auth — ใครก็สั่งได้"""
         main_path = os.path.join(os.path.dirname(__file__), "main.py")
-        with open(main_path) as f:
+        with open(main_path, encoding="utf-8") as f:
             main_src = f.read()
 
         # ตรวจ legacy /api/slew
@@ -1015,9 +947,9 @@ class TestAPI:
             # ตรวจว่า legacy route มี auth
             lines = main_src.splitlines()
             for i, line in enumerate(lines):
-                if "/api/slew" in line:
+                if '/api/slew' in line:
                     # ดูบริเวณ function ถัดไป
-                    func_block = "\n".join(lines[i : i + 5])
+                    func_block = "\n".join(lines[i:i+5])
                     has_auth = "require_role" in func_block or "Depends" in func_block
                     assert has_auth, (
                         "API-04 FAIL: POST /api/slew ไม่มี auth!\n"
@@ -1057,7 +989,6 @@ class TestAPI:
 # INF — InfluxDB
 # =============================================================================
 
-
 class TestInfluxDB:
 
     # INF-01: ant_type key mismatch
@@ -1090,13 +1021,11 @@ class TestInfluxDB:
     def test_INF02_influx_close_lifespan(self):
         """main.py ควรมี lifespan hook เรียก influx_writer.close()"""
         main_path = os.path.join(os.path.dirname(__file__), "main.py")
-        with open(main_path) as f:
+        with open(main_path, encoding="utf-8") as f:
             main_src = f.read()
 
         has_lifespan = "lifespan" in main_src
-        has_on_event = (
-            'on_event("shutdown")' in main_src or "on_event('shutdown')" in main_src
-        )
+        has_on_event = 'on_event("shutdown")' in main_src or "on_event('shutdown')" in main_src
         has_close_call = "influx_writer.close()" in main_src
 
         has_proper_shutdown = (has_lifespan or has_on_event) and has_close_call

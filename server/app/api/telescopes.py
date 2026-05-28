@@ -1,7 +1,8 @@
-"""
+﻿"""
 telescopes.py — REST endpoints สำหรับอ่าน telescope state
 """
-from fastapi import APIRouter
+
+from fastapi import APIRouter, HTTPException
 from app.simulation.alma_sim import ANTENNA_ARRAY, _system_state, _injected_faults
 
 router = APIRouter(prefix="/api/telescopes", tags=["telescopes"])
@@ -35,7 +36,7 @@ def get_telescope(dish_id: str):
                 **ant,
                 "faulted_injected": dish_id in _injected_faults,
             }
-    return {"error": f"Dish {dish_id!r} not found"}, 404
+    raise HTTPException(status_code=404, detail=f"Dish {dish_id!r} not found")
 
 
 @router.get("/system/state")
