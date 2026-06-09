@@ -8,7 +8,7 @@ ARG VITE_API_URL=http://localhost:8000
 ARG VITE_WS_URL=ws://localhost:8000
 
 COPY package.json package-lock.json ./
-RUN npm ci --silent
+RUN npm install --silent
 
 COPY . .
 RUN npm run build

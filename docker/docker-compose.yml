@@ -67,7 +67,7 @@ services:
   # ─── FastAPI backend ───────────────────────────────────────────────────────
   atmos-api:
     build:
-      context: ./server
+      context: ../server
       dockerfile: Dockerfile
     container_name: atmos-api
     restart: unless-stopped
@@ -86,6 +86,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    ports:
+      - "8000:8000"
     networks: [atmos-net, monitoring-net]
     labels:
       - "traefik.enable=true"
@@ -107,13 +109,15 @@ services:
   # ─── React frontend ────────────────────────────────────────────────────────
   atmos-frontend:
     build:
-      context: ./client
+      context: ../client
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: https://${DOMAIN}
-        VITE_WS_URL: wss://${DOMAIN}
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_WS_URL: ${VITE_WS_URL}
     container_name: atmos-frontend
     restart: unless-stopped
+    ports:
+      - "8080:80" 
     networks: [atmos-net]
     labels:
       - "traefik.enable=true"
@@ -139,7 +143,7 @@ services:
       - influx-config:/etc/influxdb2
       # Place .flux or .sh initialisation scripts in influx/init/;
       # InfluxDB executes them in lexicographic order on first startup.
-      - ./influx/init:/docker-entrypoint-initdb.d
+      - ../influx/init:/docker-entrypoint-initdb.d
     networks: [atmos-net, monitoring-net]
     healthcheck:
       test: ["CMD", "influx", "ping"]
@@ -172,8 +176,8 @@ services:
       INFLUX_TOKEN: ${INFLUX_TOKEN}
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./docker/grafana/provisioning:/etc/grafana/provisioning
-      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - influxdb
     networks: [atmos-net, monitoring-net]

@@ -190,8 +190,9 @@ where H is the hour angle and δ is source declination. Both (u, v) and conjugat
 
 ### Prerequisites
 
-- Python 3.11+ (tested on 3.13)
-- Node.js 18+ and npm
+- Python 3.11+ (for local dev only)
+- Node.js 18+ and npm (for local dev only)
+- Docker Desktop 4.x+
 - Git
 
 ### Development (local)
@@ -240,12 +241,24 @@ Frontend runs at `http://localhost:5173`
 ### Production (Docker)
 
 ```bash
-cp .env.example .env          # configure secrets and domain
-docker compose -f docker/docker-compose.yml pull
-docker compose -f docker/docker-compose.yml up -d
+cp .env.example docker/.env
+# Edit docker/.env — set DOMAIN, VITE_API_URL, VITE_WS_URL and secrets
+cd docker
+docker compose pull
+docker compose up -d
 ```
 
 Services: ATMOS API, Nginx frontend, InfluxDB, Grafana, Redis, Traefik (TLS auto-provisioned via Let's Encrypt).
+
+### Local Docker URLs
+
+| Service  | URL                        |
+|----------|----------------------------|
+| Frontend | http://localhost:8080      |
+| API      | http://localhost:8000      |
+| API Docs | http://localhost:8000/docs |
+| Grafana  | http://localhost:3000      |
+| InfluxDB | http://localhost:8086      |
 
 ---
 
@@ -366,6 +379,8 @@ All 10 ALMA bands (B1–B10) are selectable in the control panel.
 ```
 ATMOS-ATACAMA-TELESCOPE-MONITORING-AND-OPERATIONS-SYSTEM/
 ├── client/
+│   ├── docker/
+│   │   └── nginx.conf
 │   ├── public/
 │   │   ├── alma.glb
 │   │   ├── favicon.svg
