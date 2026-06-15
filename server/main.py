@@ -2,6 +2,7 @@
 main.py — ATMOS FastAPI Application
 """
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -9,7 +10,7 @@ from fastapi import FastAPI, WebSocket, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from app.ws.telemetry import telemetry_endpoint, pool
+from app.ws.telemetry import telemetry_endpoint, pool, broadcast_loop
 from app.obs_queue import scheduler, ObservationJob, JobPriority
 from app.simulation.alma_sim import cmd_inject_fault, cmd_set_band, cmd_set_mode
 from app.simulation.pointing_sim import controller
@@ -23,8 +24,9 @@ from auth import router as auth_router, ws_authenticate, Role, require_role, Use
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """ASGI lifespan — flush InfluxDB buffer ก่อน shutdown"""
+    task = asyncio.create_task(broadcast_loop())  # เริ่ม broadcast loop
     yield
+    task.cancel()
     await influx_writer.close()
 
 
