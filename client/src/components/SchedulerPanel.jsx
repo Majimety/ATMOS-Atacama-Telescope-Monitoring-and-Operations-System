@@ -203,7 +203,11 @@ export default function SchedulerPanel() {
     await fetch(`${API}/api/scheduler/jobs/${id}`, { method: "DELETE", headers });
   }
   async function moveJob(id, dir) {
-    await fetch(`${API}/api/scheduler/jobs/${id}/move?direction=${dir}`, { method: "POST", headers });
+    await fetch(`${API}/api/scheduler/jobs/${id}/move`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ direction: dir }),
+    });
   }
   async function skipActive() {
     await fetch(`${API}/api/scheduler/skip`, { method: "POST", headers });
